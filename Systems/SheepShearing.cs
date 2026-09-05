@@ -132,6 +132,7 @@ namespace LiveStockMarket.Systems
                     barn.herd = barn.herd;   // re-runs the setter: capacity bundle for the current product
                 }
                 UpdateSetupYield(state);
+                SheepVisuals.ApplyToBarn(barn);   // step 4: the look follows the mode on every path (toggle, load, upgrade, adoption)
 
                 if (onSwitch)
                 {

@@ -5,3 +5,6 @@ obj/
 *.dll
 *.pdb
 *.cache
+
+# Unity bundler project (huge Library/, regenerable from tools/unity + art/sheep)
+unity/

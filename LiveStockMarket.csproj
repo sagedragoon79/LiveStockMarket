@@ -92,6 +92,11 @@
       <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- AssetBundle.LoadFromMemory / LoadFromFile (sheep model) -->
+    <Reference Include="UnityEngine.AssetBundleModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!-- TextMeshPro (injected button labels / tooltips) -->
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
@@ -124,6 +129,11 @@
     <Compile Include="Patches\WoolStoragePatches.cs" />
     <Compile Include="Patches\ShearingPatches.cs" />
     <Compile Include="Patches\GarmentPatches.cs" />
+    <Compile Include="Systems\SheepAssets.cs" />
+    <Compile Include="Systems\SheepVisuals.cs" />
+    <Compile Include="Patches\SheepVisualPatches.cs" />
+    <Compile Include="Patches\GarmentDisplayPatches.cs" />
+    <Compile Include="Patches\SheepBarnUiPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <!-- Self-contained single-DLL install: the wool icon rides inside the assembly.
@@ -140,6 +150,17 @@
     </EmbeddedResource>
     <EmbeddedResource Include="art\woolen_clothes.png">
       <LogicalName>LSM.woolen_clothes.png</LogicalName>
+    </EmbeddedResource>
+    <!-- Step 4: the sheep model (AssetBundle built by tools/build-bundle.sh) and its icons.
+         A loose Mods/LiveStockMarket/sheep overrides the bundle. -->
+    <EmbeddedResource Include="embedded\sheep">
+      <LogicalName>LSM.sheep</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\SheepIcon256x256.png">
+      <LogicalName>LSM.sheep_icon.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\DoubleSheepIcon256x256.png">
+      <LogicalName>LSM.sheep_image.png</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

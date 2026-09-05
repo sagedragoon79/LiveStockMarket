@@ -87,6 +87,12 @@ namespace LiveStockMarket
                 Reg("Shearing", LiveStockMarketMod.cfgSheepBarnWoolCapacity,
                     Meta("Sheep Barn Wool Capacity", "Wool a Sheep barn holds before haulers take it out. Milk uses 300.", min: 10, max: 5000, step: 10, order: 6));
 
+                // Step 4: visuals.
+                Reg("Visuals", LiveStockMarketMod.cfgSheepVisuals,
+                    Meta("Sheep Model", "Animals in a Sheep barn use the sheep model, name and icon. Off = goats keep their look. Live.", order: 0));
+                Reg("Visuals", LiveStockMarketMod.cfgSheepUseGameShader,
+                    Meta("Game Shader On Sheep", "On: the goat's own material with the sheep textures. Off: the bundle's plain material, if the game shader renders the sheep wrong. Live.", order: 1));
+
                 Log?.Msg($"{LiveStockMarketMod.LogTag} Registered with the Keep Clarity settings panel.");
             }
             catch (Exception e)

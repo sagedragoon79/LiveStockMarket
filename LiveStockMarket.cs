@@ -6,7 +6,7 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v0.4.2
+//  Live-Stock Market  v0.5.4
 //  A wool production chain for Farthest Frontier, built in steps. By SageDragoon.
 //
 //  Step 1 (done, verified in-game): a Goats / Sheep mode toggle on the vanilla
@@ -34,7 +34,7 @@ using LiveStockMarket.Systems;
 //  game-systems/items-system.md (with the September 4, 2026 corrections).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.4.2", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.5.4", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -42,7 +42,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "0.4.2";
+        internal const string Version     = "0.5.4";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -88,6 +88,10 @@ namespace LiveStockMarket
         internal static MelonPreferences_Entry<float> cfgWoolSecondsPerUnit;
         internal static MelonPreferences_Entry<int>   cfgWoolGrowthDays;
         internal static MelonPreferences_Entry<int>   cfgSheepBarnWoolCapacity;
+
+        // Step 4 — visuals (live).
+        internal static MelonPreferences_Entry<bool> cfgSheepVisuals;        // sheep model, name, icon in Sheep barns
+        internal static MelonPreferences_Entry<bool> cfgSheepUseGameShader;  // goat material + sheep textures vs. bundle material
 
         public override void OnInitializeMelon()
         {
@@ -158,6 +162,14 @@ namespace LiveStockMarket
                 display_name: "Sheep Barn Wool Capacity",
                 description: "How much wool a Sheep barn holds before haulers must take it out. Milk uses 300. Applies live.");
 
+            // Step 4 — visuals.
+            cfgSheepVisuals = cfgCategory.CreateEntry("SheepVisuals", true,
+                display_name: "Sheep Model",
+                description: "Animals in a Sheep barn use the sheep model, name and icon. Off = goats keep their look. Applies live.");
+            cfgSheepUseGameShader = cfgCategory.CreateEntry("SheepUseGameShader", true,
+                display_name: "Game Shader On Sheep",
+                description: "On: the sheep uses the goat's own material with the sheep textures. Off: the bundle's plain material. Applies live.");
+
             // Optional soft dependency — renders the prefs in Keep Clarity's F10 panel.
             // "LiveStockMarket" sorts after "KeepClarity", so KC is already loaded here.
             KeepClarityIntegration.TryRegisterAll();
@@ -198,7 +210,15 @@ namespace LiveStockMarket
                 e.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
             cfgWoolSecondsPerUnit.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
 
-            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded. Step 1 toggle, step 2 ItemWool, step 3 shearing.");
+            // ── Step 4: visuals ──────────────────────────────────────────────
+            SheepVisuals.Register();                         // strings; the look is applied from SheepShearing.ApplyMode
+            SheepVisualPatches.Register(HarmonyInst);        // new animals + the "Shearing Sheep" herder label
+            GarmentDisplayPatches.Register(HarmonyInst);     // worn garments show their own icon in the villager window
+            SheepBarnUiPatches.Register(HarmonyInst);        // barn window: sheep icons on the status block and control buttons
+            cfgSheepVisuals.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
+            cfgSheepUseGameShader.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
+
+            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded. Step 1 toggle, step 2 ItemWool, step 3 shearing, step 5 garments, step 4 visuals.");
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
