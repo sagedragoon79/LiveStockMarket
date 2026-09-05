@@ -6,7 +6,7 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v0.3.1
+//  Live-Stock Market  v0.4.2
 //  A wool production chain for Farthest Frontier, built in steps. By SageDragoon.
 //
 //  Step 1 (done, verified in-game): a Goats / Sheep mode toggle on the vanilla
@@ -34,7 +34,7 @@ using LiveStockMarket.Systems;
 //  game-systems/items-system.md (with the September 4, 2026 corrections).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.3.1", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.4.2", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -42,7 +42,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "0.3.1";
+        internal const string Version     = "0.4.2";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -73,6 +73,12 @@ namespace LiveStockMarket
         internal static MelonPreferences_Entry<bool>    cfgTradersAlwaysStockWool;
         internal static MelonPreferences_Entry<KeyCode> cfgTestWoolKey;     // with Ctrl+Shift held
         internal static MelonPreferences_Entry<int>     cfgTestWoolAmount;
+
+        // Step 5 (pulled ahead of the visuals) — garments.
+        internal static MelonPreferences_Entry<float> cfgGarmentWarmthMultiplier;   // live
+        internal static MelonPreferences_Entry<int>   cfgGarmentWoolCost;           // live (recipes)
+        internal static MelonPreferences_Entry<float> cfgGarmentInputMultiplier;    // live (recipes)
+        internal static MelonPreferences_Entry<float> cfgGarmentPriceMultiplier;    // restart
 
         // Step 3 — shearing numbers (live; applied to every Sheep barn's setup clone).
         internal static MelonPreferences_Entry<int>   cfgShearSeasonStartDay;
@@ -117,6 +123,19 @@ namespace LiveStockMarket
                 display_name: "Test: Add Wool Amount",
                 description: "How much wool the test hotkey adds per press.");
 
+            cfgGarmentWarmthMultiplier = cfgCategory.CreateEntry("GarmentWarmthMultiplier", 1.25f,
+                display_name: "Garment Warmth Multiplier",
+                description: "A garment counts as the vanilla item it replaces at this effectiveness (shoe bonus, exposure clothing bonus). 1.25 = 25% better. Applies live.");
+            cfgGarmentWoolCost = cfgCategory.CreateEntry("GarmentWoolCost", 5,
+                display_name: "Garment Wool Cost",
+                description: "Wool per garment in the Cobbler, Tannery and Weaver recipes. Applies live.");
+            cfgGarmentInputMultiplier = cfgCategory.CreateEntry("GarmentInputMultiplier", 2f,
+                display_name: "Garment Input Multiplier",
+                description: "Multiplier on the vanilla recipe's leather or flax cost for the garment version. 2 = double. Applies live.");
+            cfgGarmentPriceMultiplier = cfgCategory.CreateEntry("GarmentPriceMultiplier", 1.25f,
+                display_name: "Garment Price Multiplier",
+                description: "Garment base price = the replaced item's price times this. Requires game restart.");
+
             cfgShearSeasonStartDay = cfgCategory.CreateEntry("ShearSeasonStartDay", 78,
                 display_name: "Shearing Season Start (day of year)",
                 description: "First day of the year on which Sheep barns shear. Goat milking uses 78. Applies live.");
@@ -153,12 +172,17 @@ namespace LiveStockMarket
 
             HarmonyInst = new HarmonyLib.Harmony(HarmonyId);
 
-            // ── Step 2: ItemWool ─────────────────────────────────────────────
+            // ── Step 2 + 5: mod items (wool, the three garments) ─────────────
             LocalizationPatches.Apply(HarmonyInst);   // serves LSM_ strings to vanilla UI
-            WoolItem.EnsureRegistered();              // retried inside WorkBucketManager.Awake if the table isn't loadable yet
-            WoolItemPatches.Register(HarmonyInst);    // item lists, work buckets, storage placement, icon
+            ModItems.Define(WoolItem.Def);
+            GarmentItems.DefineAll();
+            ModItems.EnsureRegistered();              // re-run per item table instance from WorkBucketManager.Awake
+            WoolItemPatches.Register(HarmonyInst);    // item lists, work buckets, ItemInfo, storage placement, icons
             WoolStoragePatches.Register(HarmonyInst); // old-save filter marker — never feature-gated
+            GarmentPatches.Register(HarmonyInst);     // garments as wearables: inventory substitution + seek requests
             cfgTradersAlwaysStockWool.OnEntryValueChanged.Subscribe((oldValue, newValue) => WoolTrade.ApplyForcedStock(newValue));
+            cfgGarmentWoolCost.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
+            cfgGarmentInputMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
 
             // ── Step 1: Goats / Sheep mode toggle on the goat barn ───────────
             GoatBarnNaming.Register();                       // "Sheep Barn" name follows the mode (subscribes first)
@@ -186,9 +210,19 @@ namespace LiveStockMarket
             // (load runs after the Map scene is up), so nothing stale survives
             // between games.
             GoatBarnModeStore.OnMapLoaded();
+            GarmentPatches.OnMapLoaded();
 
             if (cfgModEnabled.Value)
                 WoolTrade.OnMapLoaded();   // merchant goods + forced stock, once the managers exist
+        }
+
+        public override void OnSceneWasInitialized(int buildIndex, string sceneName)
+        {
+            // The game scene ("Frontier") loads before "Map"; the building table is
+            // reloaded per game, so recipes are injected here (Farther Fabricating's
+            // hook) and again from WorkBucketManager.Awake as a safety net.
+            if (sceneName == "Frontier" && HarmonyInst != null)
+                GarmentRecipes.EnsureInjected();
         }
 
         public override void OnUpdate()

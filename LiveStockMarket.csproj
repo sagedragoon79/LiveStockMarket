@@ -107,6 +107,10 @@
     <Compile Include="Systems\GoatBarnModeStore.cs" />
     <Compile Include="Systems\GoatBarnNaming.cs" />
     <Compile Include="Systems\WoolItem.cs" />
+    <Compile Include="Systems\ModIcons.cs" />
+    <Compile Include="Systems\ModItems.cs" />
+    <Compile Include="Systems\GarmentItems.cs" />
+    <Compile Include="Systems\GarmentRecipes.cs" />
     <Compile Include="Systems\WoolIcon.cs" />
     <Compile Include="Systems\WoolTrade.cs" />
     <Compile Include="Systems\WoolTestHotkey.cs" />
@@ -119,6 +123,7 @@
     <Compile Include="Patches\WoolItemPatches.cs" />
     <Compile Include="Patches\WoolStoragePatches.cs" />
     <Compile Include="Patches\ShearingPatches.cs" />
+    <Compile Include="Patches\GarmentPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <!-- Self-contained single-DLL install: the wool icon rides inside the assembly.
@@ -126,6 +131,15 @@
   <ItemGroup>
     <EmbeddedResource Include="art\wool_icon.png">
       <LogicalName>LSM.wool_icon.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\winter_boots.png">
+      <LogicalName>LSM.winter_boots.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\winter_cloak.png">
+      <LogicalName>LSM.winter_cloak.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\woolen_clothes.png">
+      <LogicalName>LSM.woolen_clothes.png</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

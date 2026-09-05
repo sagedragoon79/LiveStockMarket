@@ -29,7 +29,7 @@ How it works (the author's building-work-modes pattern, ported from Warden of th
 |---|---|---|
 | Registry | `Systems/WoolItem.cs` | Name-keyed registration with a synthetic `ItemID` (`MAX + 1`). Entry cloned from `ItemHide` (price, weight, category, report bucket) with no spoilage and Flax's carried mesh. Raises `ItemStorage`'s per-item array limit, which the items doc had missed. |
 | Runtime wiring | `Patches/WoolItemPatches.cs` | Appends wool to the work-bucket manager's item lists and gives it per-item work buckets; registers wool's `ItemInfo` with the resource manager before its `Awake` runs (settlement counts, the Settlement Items window, and the trading post UI all key on it); adds wool to any storage building that allows hides, ticked by default; injects the icon whenever the UI asset map initializes. |
-| Old saves | `Patches/WoolStoragePatches.cs` | Appends an `LSMS` marker after the base storage fields, but only for building types whose save ends there (Storehouse, Stockyard, Storage Depot), so the bytes are harmless if the mod is removed. Reads use a position-restoring peek, so a missing marker never shifts the stream. No marker on one of those types means the save predates wool, and wool is allowed by default in that building's filter, the way vanilla handles new items through its save-version table. The Trading Center has its own save fields after the base, so it gets no marker: on a pre-mod save, tick wool there once by hand. |
+| Old saves | `Patches/WoolStoragePatches.cs` | Appends an `LSMS` marker after the base storage fields, but only for building types whose save ends there (Storehouse, Stockyard, Storage Depot, Granary, Root Cellar, Treasury, Market), so the bytes are harmless if the mod is removed. Since v0.4.2 the marker lists the mod items the save knew about: a mod item missing from the list is newer than the save and is allowed by default in that building's filter, the way vanilla handles new items through its save-version table, while an item in the list keeps whatever you set. Reads use a position-restoring peek, so a missing marker never shifts the stream. The Trading Center has its own save fields after the base, so it gets no marker: on a save that predates an item, tick it there once by hand. |
 | Traders | `Systems/WoolTrade.cs` | Lists wool in the trade manager's `traderGoods` (the master list the trading post window builds its rows from), adds a wool line (cloned from that merchant's hide line) to every merchant definition, then honors the always-stock preference through the trade manager's forced-items list. |
 | Strings | `Patches/LocalizationPatches.cs` | Serves the `LSM_` tags ("Wool", the description) through the game's `Localize`. English only. |
 | Test hotkey | `Systems/WoolTestHotkey.cs` | Hold **Ctrl+Shift** and press the configured key (default **0**) to drop a stack of wool into the first storehouse that accepts it. |
@@ -82,6 +82,50 @@ For a quick test, set the sliders to season 1 to 365, growth 1, cooldown 5, and 
 4. Switch back to **Goats**: the log reports sessions ended and cooldowns clamped, and the storage line shows milk again. Any wool left in the barn is still hauled out.
 5. Save and reload with a Sheep barn: the log shows `restored mode=Sheep (... sheep-days N)` and `shearing setup applied`.
 6. With the default numbers, a barn switched to Sheep during the season shears nothing that year and a full fleece the next spring.
+
+## Step 5 (current, pulled ahead of the visuals): Garments
+
+Three wool garments, each a trade good and an upgraded wearable that replaces one vanilla clothing item:
+
+| Garment | Replaces | Made at | Recipe |
+|---|---|---|---|
+| Winter Boots | Shoes | Cobbler Shop | shoes' leather × 2 + 5 wool |
+| Winter Cloak | Hide Coat | Tannery | hide coat's leather × 2 + 5 wool |
+| Woolen Clothes | Linen Clothes | Weaver | linen clothes' flax × 2 + 5 wool |
+
+Price is the replaced item's plus 25%, same weight and wear. No tech gate: having wool is the gate, whether from a Sheep barn or a merchant.
+
+| Piece | File | Notes |
+|---|---|---|
+| Items | `Systems/ModItems.cs`, `Systems/GarmentItems.cs` | The registry that wool now shares. Each item is cloned from its template entry and re-registered per game, because the game drops its item table when a game unloads. Storage placement follows the template (boots go where shoes go). Icons with mipmaps via `Systems/ModIcons.cs`. |
+| Recipes | `Systems/GarmentRecipes.cs` | Each recipe is cloned from the producer's vanilla recipe for the replaced item (states, work units, batch size), with the inputs scaled and wool added, a fixed guid so work orders survive a reload, and the garment icon. Injected into the building table when the game scene initializes, the way Farther Fabricating does it, and again from the work-bucket manager as a safety net. |
+| Wearables | `Patches/GarmentPatches.cs` | Every warmth and "has clothing" check is an inventory query for the vanilla item on the villager's permanent inventory, so the substitution happens there: on villager inventories only, a count query for a vanilla clothing item reports the garment, and the intact-fraction query returns the garment's, scaled by the warmth multiplier. Each villager gets three garment seek requests mirroring the vanilla ones; while a garment is in stock the vanilla request drops to Low priority, so garments are preferred and vanilla is the fallback. Villagers keep a vanilla item until it wears out. |
+
+Garment preferences, under **Garments** in Keep Clarity:
+
+| Preference | Default | Meaning |
+|---|---|---|
+| `GarmentWarmthMultiplier` | 1.25 | The garment counts as the replaced item at this effectiveness. Live. |
+| `GarmentWoolCost` | 5 | Wool per garment. Live. |
+| `GarmentInputMultiplier` | 2.0 | Multiplier on the vanilla recipe's leather or flax. Live. |
+| `GarmentPriceMultiplier` | 1.25 | Price relative to the replaced item. Restart. |
+
+### In-game checks for step 5
+
+1. Launch. Expect `ModItems: 4 items registered`, the `GarmentPatches: patched ...` lines, and after a game loads `WoolItemPatches: ItemInfo registered for 4 mod items`, `GarmentRecipes: 3 recipes added`, and a `GarmentRecipes: Winter Boots = ...` line listing each recipe's inputs.
+2. Open a Cobbler Shop, Tannery, and Weaver. Each has a new recipe row with the garment icon; its inputs match the log line.
+3. Get wool in (Ctrl+Shift+hotkey or a merchant) and let a producer make a few. The garments show up in the Settlement Items window and in storehouse filters next to their vanilla counterparts.
+4. A villager without shoes seeks Winter Boots while any are in stock and shoes otherwise. The villager window still shows the shoes icon for a worn garment; that's cosmetic and noted for the visuals step.
+5. Trading center: the three garments have rows and merchants buy them.
+6. Save and reload: garments persist in storage and on villagers, and each producer's recipe slider settings persist.
+7. Producer stocking (v0.4.1): set a producer's slider so only the garment recipe runs. The worker fetches the leather or flax and the wool, finished garments get hauled out to storage, and the worker does not idle. Expect `WoolItemPatches: patched ItemDefinition.item` in the log at launch.
+8. Storage on an older save (v0.4.2): open a storehouse's filter. The three garments are ticked, garments leave the producers for storage, and the Settlement Items window no longer shows "Storage Limit Reached" for them. If the save predates the garments, tick them once by hand at the Trading Center.
+
+**If a villager wearing a garment keeps seeking the vanilla item**, the inventory queries were inlined by the JIT and the patches didn't take; tell me and I'll move the substitution to the individual consumers instead.
+
+**v0.4.1 fix: idle producers.** In v0.4.0 the Cobbler Shop, Tannery and Weaver stopped stocking materials and never had their products hauled out, so their workers sat idle. Essential Provisions then pulled the idle workers into the laborer pool, which is why the slots read "Unfilled" and refilled for a few seconds. Cause: a recipe line resolves its item by class name and caches the result. The mod pre-set that cache on its own recipe lines, but every building copies each recipe line into its stocking-request table when it wakes up, the copy drops the cache, and the wool line resolved to nothing. That threw inside the building's Awake and skipped the rest of its setup. Unity's Player.log is off in this install, so the exception never reached the MelonLoader log. Fix: a prefix on `ItemDefinition.item` resolves mod items by name for every copy. Load the save once with v0.4.1 and the three buildings set themselves up normally; no save repair is needed. The wool and input sliders now also tell each producer to refresh its stocking targets, because those live in the building's copy, not in the recipe.
+
+**v0.4.2 fix: "Storage Limit Reached" on the garments.** A storehouse saves its filter as the list of allowed items, and the mod's marker told the loader to trust that list. A save from before the garments existed came back with them unticked in every storehouse, nothing could store them, and they piled up in the producers, which is what the alert reports. The marker now records which mod items the save knew about: anything newer is allowed by default, anything known keeps your setting. A save written by v0.4.0 or v0.4.1 counts as knowing wool only, so the garments get allowed once on the next load.
 
 ## Tuning the button placement in-game
 

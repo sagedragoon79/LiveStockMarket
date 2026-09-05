@@ -61,6 +61,16 @@ namespace LiveStockMarket
                 Reg("Testing", LiveStockMarketMod.cfgTestWoolAmount,
                     Meta("Add Wool Amount", "How much wool the hotkey adds per press.", min: 1, max: 200, step: 1, order: 1));
 
+                // Step 5: garments.
+                Reg("Garments", LiveStockMarketMod.cfgGarmentWarmthMultiplier,
+                    Meta("Warmth Multiplier", "A garment counts as the vanilla item it replaces at this effectiveness. 1.25 = 25% better. Live.", min: 1f, max: 3f, step: 0.05f, order: 0));
+                Reg("Garments", LiveStockMarketMod.cfgGarmentWoolCost,
+                    Meta("Wool Per Garment", "Wool in each garment recipe. Live.", min: 1, max: 50, step: 1, order: 1));
+                Reg("Garments", LiveStockMarketMod.cfgGarmentInputMultiplier,
+                    Meta("Input Multiplier", "Multiplier on the vanilla recipe's leather or flax. 2 = double. Live.", min: 1f, max: 5f, step: 0.25f, order: 2));
+                Reg("Garments", LiveStockMarketMod.cfgGarmentPriceMultiplier,
+                    Meta("Price Multiplier", "Garment price = the replaced item's price times this.", min: 0.5f, max: 5f, step: 0.05f, restartRequired: true, order: 3));
+
                 // Step 3: shearing numbers, all live (they rewrite every Sheep barn's setup clone).
                 Reg("Shearing", LiveStockMarketMod.cfgShearSeasonStartDay,
                     Meta("Season Start (day of year)", "First day Sheep barns shear. Goat milking starts on 78.", min: 1, max: 365, step: 1, order: 0));

@@ -7,18 +7,20 @@ using UnityEngine;
 namespace LiveStockMarket.Systems
 {
     /// <summary>
-    /// Wool at the trading post — the only way to get wool until shearing (step 3).
+    /// Mod items at the trading post.
     ///
-    /// TradeManager stocks merchants from each MerchantDefinition's goodsList
-    /// (ScriptableObjects referenced by the trading post's trade-wagon prefabs).
-    /// Its forcedItemNames hook only works for items some goods list already
-    /// carries, so wool is first injected into every merchant definition as a
-    /// MerchantGoods entry cloned from that merchant's ItemHide line (or sane
-    /// defaults), then, when the "traders always stock wool" pref is on, added to
-    /// forcedItemNames so every merchant brings some.
+    /// The trading post window builds its rows from TradeManager.traderGoods, a
+    /// master list of tradeable item names; an item missing from it gets no row
+    /// at all. TradeManager stocks merchants from each MerchantDefinition's
+    /// goodsList, and its forcedItemNames hook only works for items some goods
+    /// list already carries. So every mod item is listed in traderGoods and gets
+    /// a MerchantGoods line in every merchant definition, cloned from that
+    /// merchant's line for the item's vanilla template (or sane defaults). Wool
+    /// is additionally forced into every merchant's cargo while the "traders
+    /// always stock wool" pref is on — the only wool source until shearing.
     ///
     /// Runs once per map after the managers exist (coroutine from OnSceneWasLoaded),
-    /// and again on demand; both steps are idempotent.
+    /// and again on demand; every step is idempotent.
     /// </summary>
     internal static class WoolTrade
     {
@@ -49,7 +51,7 @@ namespace LiveStockMarket.Systems
                 yield return new WaitForSeconds(PollSeconds);
                 waited += PollSeconds;
 
-                if (!WoolItem.IsRegistered) continue;
+                if (!ModItems.IsRegistered) continue;
                 var gm = UnitySingleton<GameManager>.Instance;
                 if (gm == null || gm.tradeManager == null) continue;
 
@@ -62,27 +64,26 @@ namespace LiveStockMarket.Systems
                     _coroutine = null;
                     yield break;
                 }
-                // No merchant definitions loaded yet (no trading post built, assets not
-                // pulled in) — keep polling; they appear once the trading post prefab loads.
             }
-            LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: no merchant definitions found after {GiveUpSeconds:F0}s — wool won't appear at traders until a trading post exists (retry on next map load).");
+            LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: no merchant definitions found after {GiveUpSeconds:F0}s — mod items won't appear at traders until a trading post exists (retry on next map load).");
             _coroutine = null;
         }
 
-        /// <summary>
-        /// The trading post window builds its rows from TradeManager.traderGoods — a
-        /// master list of tradeable item names, separate from any merchant's cargo.
-        /// An item missing from it gets no row at all, not even greyed out. Per map
-        /// (the manager is per scene), idempotent.
-        /// </summary>
+        /// <summary>Lists every mod item in the trading post's goods (per map; idempotent).</summary>
         public static void EnsureListedAtTradingPost(TradeManager tm)
         {
             try
             {
                 if (tm == null || tm.traderGoods == null) return;
-                if (tm.traderGoods.Contains(WoolItem.ItemName)) return;
-                tm.traderGoods.Add(WoolItem.ItemName);
-                LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: wool listed in the trading post's goods ({tm.traderGoods.Count} goods).");
+                int added = 0;
+                foreach (var def in ModItems.All)
+                {
+                    if (tm.traderGoods.Contains(def.Name)) continue;
+                    tm.traderGoods.Add(def.Name);
+                    added++;
+                }
+                if (added > 0)
+                    LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: {added} mod items listed in the trading post's goods ({tm.traderGoods.Count} goods).");
             }
             catch (Exception ex)
             {
@@ -90,38 +91,40 @@ namespace LiveStockMarket.Systems
             }
         }
 
-        /// <summary>Adds a wool line to every merchant definition that lacks one. Returns definitions seen.</summary>
+        /// <summary>Adds a line per mod item to every merchant definition that lacks one. Returns definitions seen.</summary>
         public static int InjectMerchantGoods()
         {
             var defs = CollectDefinitions();
             int added = 0;
-            foreach (var def in defs)
+            foreach (var merchant in defs)
             {
                 try
                 {
-                    if (def == null || def.goodsList == null) continue;
-                    if (def.goodsList.Exists(g => g != null && g.itemName == WoolItem.ItemName)) continue;
-
-                    var template = def.goodsList.Find(g => g != null && g.itemName == WoolItem.TemplateItemName);
-                    def.goodsList.Add(new MerchantGoods
+                    if (merchant == null || merchant.goodsList == null) continue;
+                    foreach (var def in ModItems.All)
                     {
-                        itemName = WoolItem.ItemName,
-                        sellProbability = template != null ? template.sellProbability : 1,
-                        buyProbability  = template != null ? template.buyProbability  : 1,
-                        minItems = template != null ? template.minItems : 10,
-                        maxItems = template != null ? template.maxItems : 40,
-                        sellPriceMultiplierMin = template != null ? template.sellPriceMultiplierMin : 1.0f,
-                        sellPriceMultiplierMax = template != null ? template.sellPriceMultiplierMax : 1.5f,
-                    });
-                    added++;
+                        if (merchant.goodsList.Exists(g => g != null && g.itemName == def.Name)) continue;
+                        var template = merchant.goodsList.Find(g => g != null && g.itemName == def.TemplateName);
+                        merchant.goodsList.Add(new MerchantGoods
+                        {
+                            itemName = def.Name,
+                            sellProbability = template != null ? template.sellProbability : 1,
+                            buyProbability  = template != null ? template.buyProbability  : 1,
+                            minItems = template != null ? template.minItems : 10,
+                            maxItems = template != null ? template.maxItems : 40,
+                            sellPriceMultiplierMin = template != null ? template.sellPriceMultiplierMin : 1.0f,
+                            sellPriceMultiplierMax = template != null ? template.sellPriceMultiplierMax : 1.5f,
+                        });
+                        added++;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    LiveStockMarketMod.Log.Warning($"{Tag} WoolTrade: merchant '{(def != null ? def.name : "?")}': {ex.Message}");
+                    LiveStockMarketMod.Log.Warning($"{Tag} WoolTrade: merchant '{(merchant != null ? merchant.name : "?")}': {ex.Message}");
                 }
             }
             if (defs.Count > 0 && (added > 0 || !_injectedThisMap))
-                LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: wool listed with {added} newly / {defs.Count} merchant definitions total.");
+                LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: {added} merchant lines added across {defs.Count} merchant definitions.");
             return defs.Count;
         }
 
