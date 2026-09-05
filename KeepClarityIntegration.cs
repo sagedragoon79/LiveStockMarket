@@ -53,6 +53,14 @@ namespace LiveStockMarket
                 Reg("Buttons", LiveStockMarketMod.cfgButtonHeight,
                     Meta("Button Height", "Height of each button in UI units. Live.", min: 20, max: 80, step: 1, order: 3));
 
+                // Step 2: wool supply until shearing exists, and a test hotkey.
+                Reg("Wool", LiveStockMarketMod.cfgTradersAlwaysStockWool,
+                    Meta("Traders Always Stock Wool", "Every merchant brings wool. Turn off once shearing exists for normal random stock. Live.", order: 0));
+                Reg("Testing", LiveStockMarketMod.cfgTestWoolKey,
+                    Meta("Add Wool Hotkey", "Hold Ctrl+Shift and press this key to drop a stack of wool into a storehouse. None disables it.", order: 0));
+                Reg("Testing", LiveStockMarketMod.cfgTestWoolAmount,
+                    Meta("Add Wool Amount", "How much wool the hotkey adds per press.", min: 1, max: 200, step: 1, order: 1));
+
                 Log?.Msg($"{LiveStockMarketMod.LogTag} Registered with the Keep Clarity settings panel.");
             }
             catch (Exception e)
@@ -80,7 +88,7 @@ namespace LiveStockMarket
             _registerMod.Invoke(null, new object[]
             {
                 ModId, ModDisplayName,
-                "A wool production chain, built in steps. Step 1: Goats / Sheep mode on the goat barn.",
+                "A wool production chain, built in steps. Step 1: Goats / Sheep mode on the goat barn. Step 2: wool as a new item.",
                 LiveStockMarketMod.Version,
                 null,                                        // iconResourcePath
                 new[] { 0.86f, 0.80f, 0.66f, 1f },           // wool-cream accent stripe

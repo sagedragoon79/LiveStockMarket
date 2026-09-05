@@ -4,9 +4,8 @@
   Scaffold modeled on BoatKeys/TheDockmastersDingyBoathouse.csproj.
 
   Build:   dotnet msbuild -restore -p:Configuration=Debug LiveStockMarket.csproj
-  Deploy:  ./deploy.sh            (waits for Farthest Frontier to exit, then copies to Mods/)
-           The CopyToMods target below also tries to copy after every build; it is
-           non-fatal so a build while the game is running still succeeds.
+  Deploy:  the CopyToMods target copies the DLL into Mods/ after every build (non-fatal).
+           ./deploy.sh is the fallback that waits for Farthest Frontier to exit first.
 -->
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
@@ -84,6 +83,15 @@
       <HintPath>$(ManagedDir)\UnityEngine.TextRenderingModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Texture2D.LoadImage (wool icon) and Input (test hotkey) -->
+    <Reference Include="UnityEngine.ImageConversionModule">
+      <HintPath>$(ManagedDir)\UnityEngine.ImageConversionModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.InputLegacyModule">
+      <HintPath>$(ManagedDir)\UnityEngine.InputLegacyModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!-- TextMeshPro (injected button labels / tooltips) -->
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
@@ -98,11 +106,25 @@
     <Compile Include="KeepClarityIntegration.cs" />
     <Compile Include="Systems\GoatBarnModeStore.cs" />
     <Compile Include="Systems\GoatBarnNaming.cs" />
+    <Compile Include="Systems\WoolItem.cs" />
+    <Compile Include="Systems\WoolIcon.cs" />
+    <Compile Include="Systems\WoolTrade.cs" />
+    <Compile Include="Systems\WoolTestHotkey.cs" />
     <Compile Include="Patches\GoatBarnSaveLoadPatches.cs" />
     <Compile Include="Patches\GoatBarnLoadPatches.cs" />
     <Compile Include="Patches\GoatBarnNamePatches.cs" />
     <Compile Include="Patches\GoatBarnModeButtonPatches.cs" />
+    <Compile Include="Patches\LocalizationPatches.cs" />
+    <Compile Include="Patches\WoolItemPatches.cs" />
+    <Compile Include="Patches\WoolStoragePatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+  </ItemGroup>
+  <!-- Self-contained single-DLL install: the wool icon rides inside the assembly.
+       A loose Mods/LiveStockMarket/wool_icon.png still overrides it (artist hot-swap). -->
+  <ItemGroup>
+    <EmbeddedResource Include="art\wool_icon.png">
+      <LogicalName>LSM.wool_icon.png</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3">
@@ -110,8 +132,7 @@
     </PackageReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- Best-effort copy into Mods/. Non-fatal: MelonLoader 0.7 holds the DLL open while
-       Farthest Frontier runs, so use ./deploy.sh to wait for the game to exit. -->
+  <!-- Best-effort copy into Mods/. Non-fatal so a build never fails on a locked file. -->
   <Target Name="CopyToMods" AfterTargets="Build" Condition="'$(CopyToModsEnabled)' == 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(GameDir)\Mods\" ContinueOnError="true" />
   </Target>
