@@ -40,28 +40,6 @@ namespace LiveStockMarket
                 Reg("Master", LiveStockMarketMod.cfgModEnabled,
                     Meta("Mod Enabled", "Disable to fall back to vanilla behavior.", restartRequired: true, order: 0));
 
-                // Live layout knobs for the Goats / Sheep pair on the barn portrait.
-                // A change rebuilds the open row; otherwise reselect the barn.
-                Reg("Buttons", LiveStockMarketMod.cfgButtonPosX,
-                    Meta("Buttons X (portrait)", "Horizontal center of the pair across the barn portrait. 0 = left edge, 1 = right edge. Live.",
-                        min: 0f, max: 1f, step: 0.01f, order: 0));
-                Reg("Buttons", LiveStockMarketMod.cfgButtonPosY,
-                    Meta("Buttons Y (portrait)", "Vertical center of the pair up the barn portrait. 0 = bottom edge, 1 = top edge. Live.",
-                        min: 0f, max: 1f, step: 0.01f, order: 1));
-                Reg("Buttons", LiveStockMarketMod.cfgButtonWidth,
-                    Meta("Button Width", "Width of each button in UI units. Live.", min: 40, max: 300, step: 1, order: 2));
-                Reg("Buttons", LiveStockMarketMod.cfgButtonHeight,
-                    Meta("Button Height", "Height of each button in UI units. Live.", min: 20, max: 80, step: 1, order: 3));
-
-                // Step 2: wool supply until shearing exists, and a test hotkey.
-                Reg("Wool", LiveStockMarketMod.cfgTradersAlwaysStockWool,
-                    Meta("Traders Always Stock Wool", "Every merchant brings wool. Turn off once shearing exists for normal random stock. Live.", order: 0));
-                Reg("Testing", LiveStockMarketMod.cfgTestWoolKey,
-                    Meta("Add Wool Hotkey", "Hold Ctrl+Shift and press this key to drop a stack of wool into a storehouse. None disables it.", order: 0));
-                Reg("Testing", LiveStockMarketMod.cfgTestWoolAmount,
-                    Meta("Add Wool Amount", "How much wool the hotkey adds per press.", min: 1, max: 200, step: 1, order: 1));
-
-                // Step 5: garments.
                 Reg("Garments", LiveStockMarketMod.cfgGarmentWarmthMultiplier,
                     Meta("Warmth Multiplier", "A garment counts as the vanilla item it replaces at this effectiveness. 1.25 = 25% better. Live.", min: 1f, max: 3f, step: 0.05f, order: 0));
                 Reg("Garments", LiveStockMarketMod.cfgGarmentWoolCost,
@@ -71,7 +49,7 @@ namespace LiveStockMarket
                 Reg("Garments", LiveStockMarketMod.cfgGarmentPriceMultiplier,
                     Meta("Price Multiplier", "Garment price = the replaced item's price times this.", min: 0.5f, max: 5f, step: 0.05f, restartRequired: true, order: 3));
 
-                // Step 3: shearing numbers, all live (they rewrite every Sheep barn's setup clone).
+                // Shearing numbers, all live (they rewrite every Sheep barn's setup clone).
                 Reg("Shearing", LiveStockMarketMod.cfgShearSeasonStartDay,
                     Meta("Season Start (day of year)", "First day Sheep barns shear. Goat milking starts on 78.", min: 1, max: 365, step: 1, order: 0));
                 Reg("Shearing", LiveStockMarketMod.cfgShearSeasonEndDay,
@@ -87,7 +65,6 @@ namespace LiveStockMarket
                 Reg("Shearing", LiveStockMarketMod.cfgSheepBarnWoolCapacity,
                     Meta("Sheep Barn Wool Capacity", "Wool a Sheep barn holds before haulers take it out. Milk uses 300.", min: 10, max: 5000, step: 10, order: 6));
 
-                // Step 4: visuals.
                 Reg("Visuals", LiveStockMarketMod.cfgSheepVisuals,
                     Meta("Sheep Model", "Animals in a Sheep barn use the sheep model, name and icon. Off = goats keep their look. Live.", order: 0));
                 Reg("Visuals", LiveStockMarketMod.cfgSheepUseGameShader,
@@ -120,7 +97,7 @@ namespace LiveStockMarket
             _registerMod.Invoke(null, new object[]
             {
                 ModId, ModDisplayName,
-                "A wool production chain, built in steps. Step 1: Goats / Sheep mode on the goat barn. Step 2: wool as a new item.",
+                "Sheep barns, wool, shearing and wool garments. Flip a goat barn to Sheep: its animals become sheep, herders shear wool in season, and the Cobbler, Tannery and Weaver can make Winter Boots, a Winter Cloak and Woolen Clothes.",
                 LiveStockMarketMod.Version,
                 null,                                        // iconResourcePath
                 new[] { 0.86f, 0.80f, 0.66f, 1f },           // wool-cream accent stripe

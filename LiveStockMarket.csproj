@@ -118,7 +118,6 @@
     <Compile Include="Systems\GarmentRecipes.cs" />
     <Compile Include="Systems\WoolIcon.cs" />
     <Compile Include="Systems\WoolTrade.cs" />
-    <Compile Include="Systems\WoolTestHotkey.cs" />
     <Compile Include="Systems\SheepShearing.cs" />
     <Compile Include="Patches\GoatBarnSaveLoadPatches.cs" />
     <Compile Include="Patches\GoatBarnLoadPatches.cs" />

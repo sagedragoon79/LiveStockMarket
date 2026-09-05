@@ -12,20 +12,24 @@ namespace LiveStockMarket.Systems
     /// The trading post window builds its rows from TradeManager.traderGoods, a
     /// master list of tradeable item names; an item missing from it gets no row
     /// at all. TradeManager stocks merchants from each MerchantDefinition's
-    /// goodsList, and its forcedItemNames hook only works for items some goods
-    /// list already carries. So every mod item is listed in traderGoods and gets
-    /// a MerchantGoods line in every merchant definition, cloned from that
-    /// merchant's line for the item's vanilla template (or sane defaults). Wool
-    /// is additionally forced into every merchant's cargo while the "traders
-    /// always stock wool" pref is on — the only wool source until shearing.
+    /// goodsList, so every mod item is listed in traderGoods and gets a
+    /// MerchantGoods line cloned from that merchant's line for the item's vanilla
+    /// template (or sane defaults). Wool is carried only by the agricultural and
+    /// hunter-and-herder merchants (MerchantDefinitionT1_Agricultural / T1_HunterHerder); the garments
+    /// appear wherever their vanilla counterparts do. Stock is rolled by vanilla.
     ///
-    /// Runs once per map after the managers exist (coroutine from OnSceneWasLoaded),
-    /// and again on demand; every step is idempotent.
+    /// Runs once per map after the managers exist (coroutine from OnSceneWasLoaded);
+    /// every step is idempotent.
     /// </summary>
     internal static class WoolTrade
     {
         private const float PollSeconds = 2f;
         private const float GiveUpSeconds = 120f;
+
+        /// <summary>Merchant definition name fragments that carry wool.</summary>
+        // MerchantDefinitionT1_Agricultural and MerchantDefinitionT1_HunterHerder (the others:
+        // T1_Butcher, T1_MiningBlacksmith, T2_MiningBlacksmith, T2_Luxury).
+        private static readonly string[] WoolMerchants = { "Agricultural", "HunterHerder" };
 
         private static bool _injectedThisMap;
         private static object _coroutine;
@@ -57,7 +61,7 @@ namespace LiveStockMarket.Systems
 
                 EnsureListedAtTradingPost(gm.tradeManager);
                 int defs = InjectMerchantGoods();
-                ApplyForcedStock(LiveStockMarketMod.cfgTradersAlwaysStockWool.Value);
+                ClearLegacyForcedStock(gm.tradeManager);
                 if (defs > 0)
                 {
                     _injectedThisMap = true;
@@ -91,11 +95,24 @@ namespace LiveStockMarket.Systems
             }
         }
 
-        /// <summary>Adds a line per mod item to every merchant definition that lacks one. Returns definitions seen.</summary>
+        private static bool CarriesWool(MerchantDefinition merchant)
+        {
+            if (merchant == null || string.IsNullOrEmpty(merchant.name)) return false;
+            foreach (var key in WoolMerchants)
+                if (merchant.name.IndexOf(key, StringComparison.OrdinalIgnoreCase) >= 0) return true;
+            return false;
+        }
+
+        /// <summary>
+        /// Adds a line per mod item to each merchant definition that should carry it and
+        /// removes wool lines from merchants that should not (a definition can outlive a
+        /// map). Returns the number of definitions seen.
+        /// </summary>
         public static int InjectMerchantGoods()
         {
             var defs = CollectDefinitions();
-            int added = 0;
+            int added = 0, removed = 0;
+            var woolSellers = new List<string>();
             foreach (var merchant in defs)
             {
                 try
@@ -103,7 +120,15 @@ namespace LiveStockMarket.Systems
                     if (merchant == null || merchant.goodsList == null) continue;
                     foreach (var def in ModItems.All)
                     {
-                        if (merchant.goodsList.Exists(g => g != null && g.itemName == def.Name)) continue;
+                        bool wanted = def.Name != WoolItem.ItemName || CarriesWool(merchant);
+                        bool present = merchant.goodsList.Exists(g => g != null && g.itemName == def.Name);
+                        if (present && !wanted)
+                        {
+                            removed += merchant.goodsList.RemoveAll(g => g != null && g.itemName == def.Name);
+                            continue;
+                        }
+                        if (def.Name == WoolItem.ItemName && wanted) woolSellers.Add(merchant.name);
+                        if (present || !wanted) continue;
                         var template = merchant.goodsList.Find(g => g != null && g.itemName == def.TemplateName);
                         merchant.goodsList.Add(new MerchantGoods
                         {
@@ -123,8 +148,8 @@ namespace LiveStockMarket.Systems
                     LiveStockMarketMod.Log.Warning($"{Tag} WoolTrade: merchant '{(merchant != null ? merchant.name : "?")}': {ex.Message}");
                 }
             }
-            if (defs.Count > 0 && (added > 0 || !_injectedThisMap))
-                LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: {added} merchant lines added across {defs.Count} merchant definitions.");
+            if (defs.Count > 0 && (added > 0 || removed > 0 || !_injectedThisMap))
+                LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: {added} merchant lines added, {removed} removed, across {defs.Count} merchant definitions; wool at: {(woolSellers.Count > 0 ? string.Join(", ", woolSellers.ToArray()) : "none")}.");
             return defs.Count;
         }
 
@@ -159,21 +184,21 @@ namespace LiveStockMarket.Systems
             return result;
         }
 
-        /// <summary>Adds/removes wool from TradeManager.forcedItemNames. Live-safe.</summary>
-        public static void ApplyForcedStock(bool force)
+        /// <summary>
+        /// Pre-1.0 builds could force wool into every merchant's cargo through
+        /// TradeManager.forcedItemNames. Stock is vanilla-random now; drop the entry.
+        /// </summary>
+        private static void ClearLegacyForcedStock(TradeManager tm)
         {
             try
             {
-                var tm = UnitySingleton<GameManager>.Instance?.tradeManager;
                 var forced = tm != null ? tm.forcedItemNames : null;
-                if (forced == null) return;
-                bool has = forced.Contains(WoolItem.ItemName);
-                if (force && !has) { forced.Add(WoolItem.ItemName); LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: traders will always stock wool."); }
-                else if (!force && has) { forced.Remove(WoolItem.ItemName); LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: wool back to random merchant stock."); }
+                if (forced != null && forced.Remove(WoolItem.ItemName))
+                    LiveStockMarketMod.Log.Msg($"{Tag} WoolTrade: removed the pre-1.0 forced wool stock; merchants roll wool like any other good.");
             }
             catch (Exception ex)
             {
-                LiveStockMarketMod.Log.Warning($"{Tag} WoolTrade.ApplyForcedStock: {ex.Message}");
+                LiveStockMarketMod.Log.Warning($"{Tag} WoolTrade.ClearLegacyForcedStock: {ex.Message}");
             }
         }
     }

@@ -6,35 +6,24 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v0.5.4
-//  A wool production chain for Farthest Frontier, built in steps. By SageDragoon.
+//  Live-Stock Market  v1.0.0 — a wool economy for Farthest Frontier. By SageDragoon.
 //
-//  Step 1 (done, verified in-game): a Goats / Sheep mode toggle on the vanilla
-//  goat barn (GoatBarn and GoatBarn_Tier2 — the same GoatBarn class at tier 1 /
-//  tier 2). Position-keyed mode store, buttons overlaid on the barn portrait,
-//  mode appended to the barn's ES2 stream, and a Sheep barn is named
-//  "Sheep Barn" / "Large Sheep Barn" everywhere. No behavior change.
+//  • Goat barns get a Goats / Sheep switch (buttons on the barn portrait). A
+//    Sheep barn is named "Sheep Barn", its animals wear a sheep model, and its
+//    herders shear wool in season instead of milking. The mode is saved.
+//  • Wool is a new item: stored with hides, counted, traded by the agricultural and
+//    hunter-and-herder merchants, with an icon and English strings.
+//  • Three wool garments — Winter Boots (Cobbler Shop), Winter Cloak (Tannery),
+//    Woolen Clothes (Weaver) — are trade goods and warmer replacements for
+//    shoes, hide coats and linen clothes; villagers prefer them while in stock.
 //
-//  Step 2 (this build): ItemWool — a genuinely new item.
-//    • Systems/WoolItem.cs: name-keyed registration (ItemID MAX+1), ItemEntry
-//      cloned from ItemHide (price, weight, category), Flax's carried mesh,
-//      raises ItemStorage's per-item array limit, English strings.
-//    • Patches/WoolItemPatches.cs: appended to WorkBucketManager's item lists
-//      and given per-item work buckets; storable wherever hides are; icon.
-//    • Patches/WoolStoragePatches.cs: marker so saves that predate wool get
-//      it allowed by default in every storehouse filter.
-//    • Systems/WoolTrade.cs: wool in every merchant's goods list, plus a pref
-//      that forces traders to always stock it (the only source until step 3).
-//    • Systems/WoolTestHotkey.cs: Ctrl+Shift+<key> drops a stack into a store.
-//  Uninstall caveat: a save holding wool loads without the mod with errors
-//  (items have no missing-mod path) — see README.
-//
-//  Plan of record: HANDOFF.md (repo root).
-//  Pattern references: FF-Modding-Knowledge/mod-patterns/building-work-modes.md,
-//  game-systems/items-system.md (with the September 4, 2026 corrections).
+//  Layout: Systems/ (mode store, naming, shearing, items, recipes, visuals),
+//  Patches/ (Harmony). Plan and history: HANDOFF.md and docs/DEVELOPMENT.md.
+//  Knowledge base: FF-Modding-Knowledge (items-system, livestock-system,
+//  building-work-modes, skinned-mesh-swap-on-vanilla-rig).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.5.4", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "1.0.0", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -42,7 +31,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "0.5.4";
+        internal const string Version     = "1.0.0";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -53,7 +42,7 @@ namespace LiveStockMarket
         internal static MelonLogger.Instance Log => Instance?.LoggerInstance;
         internal static HarmonyLib.Harmony HarmonyInst { get; private set; }
 
-        /// <summary>True while the Map scene is the active scene (hotkeys only run there).</summary>
+        /// <summary>True while the Map scene is the active scene.</summary>
         internal static bool InMap { get; private set; }
 
         // ── Config ──────────────────────────────────────────────────────────
@@ -62,25 +51,13 @@ namespace LiveStockMarket
         internal static MelonPreferences_Category    cfgCategory;
         internal static MelonPreferences_Entry<bool> cfgModEnabled;
 
-        // Step 1 — button placement on the barn portrait. Live: read on every
-        // injection, and a change rebuilds any open row. Strip before a release.
-        internal static MelonPreferences_Entry<float> cfgButtonPosX;    // 0..1 across the portrait (0 = left)
-        internal static MelonPreferences_Entry<float> cfgButtonPosY;    // 0..1 up the portrait (0 = bottom)
-        internal static MelonPreferences_Entry<int>   cfgButtonWidth;   // UI units, per button
-        internal static MelonPreferences_Entry<int>   cfgButtonHeight;  // UI units
-
-        // Step 2 — wool at traders + a test hotkey.
-        internal static MelonPreferences_Entry<bool>    cfgTradersAlwaysStockWool;
-        internal static MelonPreferences_Entry<KeyCode> cfgTestWoolKey;     // with Ctrl+Shift held
-        internal static MelonPreferences_Entry<int>     cfgTestWoolAmount;
-
-        // Step 5 (pulled ahead of the visuals) — garments.
+        // Garments.
         internal static MelonPreferences_Entry<float> cfgGarmentWarmthMultiplier;   // live
         internal static MelonPreferences_Entry<int>   cfgGarmentWoolCost;           // live (recipes)
         internal static MelonPreferences_Entry<float> cfgGarmentInputMultiplier;    // live (recipes)
         internal static MelonPreferences_Entry<float> cfgGarmentPriceMultiplier;    // restart
 
-        // Step 3 — shearing numbers (live; applied to every Sheep barn's setup clone).
+        // Shearing (live; applied to every Sheep barn's setup clone).
         internal static MelonPreferences_Entry<int>   cfgShearSeasonStartDay;
         internal static MelonPreferences_Entry<int>   cfgShearSeasonEndDay;
         internal static MelonPreferences_Entry<int>   cfgShearCooldownDays;
@@ -89,7 +66,7 @@ namespace LiveStockMarket
         internal static MelonPreferences_Entry<int>   cfgWoolGrowthDays;
         internal static MelonPreferences_Entry<int>   cfgSheepBarnWoolCapacity;
 
-        // Step 4 — visuals (live).
+        // Visuals (live).
         internal static MelonPreferences_Entry<bool> cfgSheepVisuals;        // sheep model, name, icon in Sheep barns
         internal static MelonPreferences_Entry<bool> cfgSheepUseGameShader;  // goat material + sheep textures vs. bundle material
 
@@ -101,31 +78,6 @@ namespace LiveStockMarket
             cfgModEnabled = cfgCategory.CreateEntry("ModEnabled", true,
                 display_name: "Mod Enabled",
                 description: "Master switch. Disable to fall back to vanilla behavior. Requires game restart.");
-
-            // Defaults = the values dialed in on the user's screen on September 4, 2026.
-            cfgButtonPosX = cfgCategory.CreateEntry("ButtonPosX", 0.56f,
-                display_name: "Buttons X (portrait, 0-1)",
-                description: "Horizontal center of the Goats / Sheep pair across the barn portrait. 0 = left edge, 1 = right edge. Applies live.");
-            cfgButtonPosY = cfgCategory.CreateEntry("ButtonPosY", 0.40f,
-                display_name: "Buttons Y (portrait, 0-1)",
-                description: "Vertical center of the pair up the barn portrait. 0 = bottom edge, 1 = top edge. Applies live.");
-            cfgButtonWidth = cfgCategory.CreateEntry("ButtonWidth", 95,
-                display_name: "Button Width",
-                description: "Width of each button in UI units. Applies live.");
-            cfgButtonHeight = cfgCategory.CreateEntry("ButtonHeight", 47,
-                display_name: "Button Height",
-                description: "Height of each button in UI units. Applies live.");
-
-            cfgTradersAlwaysStockWool = cfgCategory.CreateEntry("TradersAlwaysStockWool", true,
-                display_name: "Traders Always Stock Wool",
-                description: "Every visiting merchant brings wool. The only wool source until shearing (step 3). Off = wool is a normal random merchant good. Applies live.");
-            // Alpha0: bare 1-9 and Ctrl+1-9 are control groups, W moves the camera.
-            cfgTestWoolKey = cfgCategory.CreateEntry("TestWoolKey", KeyCode.Alpha0,
-                display_name: "Test: Add Wool Hotkey (Ctrl+Shift+key)",
-                description: "Hold Ctrl+Shift and press this key to drop a stack of wool into the first storehouse that accepts it. None disables it.");
-            cfgTestWoolAmount = cfgCategory.CreateEntry("TestWoolAmount", 20,
-                display_name: "Test: Add Wool Amount",
-                description: "How much wool the test hotkey adds per press.");
 
             cfgGarmentWarmthMultiplier = cfgCategory.CreateEntry("GarmentWarmthMultiplier", 1.25f,
                 display_name: "Garment Warmth Multiplier",
@@ -162,7 +114,6 @@ namespace LiveStockMarket
                 display_name: "Sheep Barn Wool Capacity",
                 description: "How much wool a Sheep barn holds before haulers must take it out. Milk uses 300. Applies live.");
 
-            // Step 4 — visuals.
             cfgSheepVisuals = cfgCategory.CreateEntry("SheepVisuals", true,
                 display_name: "Sheep Model",
                 description: "Animals in a Sheep barn use the sheep model, name and icon. Off = goats keep their look. Applies live.");
@@ -184,33 +135,32 @@ namespace LiveStockMarket
 
             HarmonyInst = new HarmonyLib.Harmony(HarmonyId);
 
-            // ── Step 2 + 5: mod items (wool, the three garments) ─────────────
+            // ── Items: wool and the three garments ───────────────────────────
             LocalizationPatches.Apply(HarmonyInst);   // serves LSM_ strings to vanilla UI
             ModItems.Define(WoolItem.Def);
             GarmentItems.DefineAll();
             ModItems.EnsureRegistered();              // re-run per item table instance from WorkBucketManager.Awake
-            WoolItemPatches.Register(HarmonyInst);    // item lists, work buckets, ItemInfo, storage placement, icons
-            WoolStoragePatches.Register(HarmonyInst); // old-save filter marker — never feature-gated
+            WoolItemPatches.Register(HarmonyInst);    // item lists, work buckets, ItemInfo, storage placement, icons, recipe lines
+            WoolStoragePatches.Register(HarmonyInst); // storage filter marker for saves that predate an item — never feature-gated
             GarmentPatches.Register(HarmonyInst);     // garments as wearables: inventory substitution + seek requests
-            cfgTradersAlwaysStockWool.OnEntryValueChanged.Subscribe((oldValue, newValue) => WoolTrade.ApplyForcedStock(newValue));
             cfgGarmentWoolCost.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
             cfgGarmentInputMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
 
-            // ── Step 1: Goats / Sheep mode toggle on the goat barn ───────────
+            // ── Goats / Sheep mode on the goat barn ──────────────────────────
             GoatBarnNaming.Register();                       // "Sheep Barn" name follows the mode (subscribes first)
-            SheepShearing.Register();                        // step 3: setup asset + shearing rules follow the mode
+            SheepShearing.Register();                        // setup asset, shearing rules and the sheep look follow the mode
             GoatBarnSaveLoadPatches.Register(HarmonyInst);   // persistence — never feature-gated (see file header)
             GoatBarnLoadPatches.Register(HarmonyInst);       // load-phase hook: name + shearing setup re-apply
             GoatBarnNamePatches.Register(HarmonyInst);       // name re-apply when vanilla regenerates it (upgrade)
             GoatBarnModeButtonPatches.Register(HarmonyInst); // info-window buttons + live title
 
-            // ── Step 3: shearing ─────────────────────────────────────────────
+            // ── Shearing ─────────────────────────────────────────────────────
             ShearingPatches.Register(HarmonyInst);           // harvest loop yields wool for Sheep barns
             foreach (var e in new[] { cfgShearSeasonStartDay, cfgShearSeasonEndDay, cfgShearCooldownDays, cfgWoolPerSheep, cfgWoolGrowthDays, cfgSheepBarnWoolCapacity })
                 e.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
             cfgWoolSecondsPerUnit.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
 
-            // ── Step 4: visuals ──────────────────────────────────────────────
+            // ── Visuals ──────────────────────────────────────────────────────
             SheepVisuals.Register();                         // strings; the look is applied from SheepShearing.ApplyMode
             SheepVisualPatches.Register(HarmonyInst);        // new animals + the "Shearing Sheep" herder label
             GarmentDisplayPatches.Register(HarmonyInst);     // worn garments show their own icon in the villager window
@@ -218,7 +168,7 @@ namespace LiveStockMarket
             cfgSheepVisuals.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
             cfgSheepUseGameShader.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
 
-            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded. Step 1 toggle, step 2 ItemWool, step 3 shearing, step 5 garments, step 4 visuals.");
+            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded.");
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
@@ -233,7 +183,7 @@ namespace LiveStockMarket
             GarmentPatches.OnMapLoaded();
 
             if (cfgModEnabled.Value)
-                WoolTrade.OnMapLoaded();   // merchant goods + forced stock, once the managers exist
+                WoolTrade.OnMapLoaded();   // merchant goods, once the managers exist
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)
@@ -243,12 +193,6 @@ namespace LiveStockMarket
             // hook) and again from WorkBucketManager.Awake as a safety net.
             if (sceneName == "Frontier" && HarmonyInst != null)
                 GarmentRecipes.EnsureInjected();
-        }
-
-        public override void OnUpdate()
-        {
-            if (HarmonyInst == null) return;   // mod disabled
-            WoolTestHotkey.Tick();             // gates itself on the live GameManager
         }
     }
 }

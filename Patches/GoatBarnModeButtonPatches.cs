@@ -82,29 +82,10 @@ namespace LiveStockMarket.Patches
                 LiveStockMarketMod.Log.Msg(
                     $"{Tag} GoatBarnModeButton: patched UIBuildingInfoWindow_New.SetTargetData");
 
-                // Live layout tuning: any placement pref change rebuilds open rows.
-                SubscribeLayoutPref(LiveStockMarketMod.cfgButtonPosX);
-                SubscribeLayoutPref(LiveStockMarketMod.cfgButtonPosY);
-                SubscribeLayoutPref(LiveStockMarketMod.cfgButtonWidth);
-                SubscribeLayoutPref(LiveStockMarketMod.cfgButtonHeight);
             }
             catch (Exception ex)
             {
                 LiveStockMarketMod.Log.Warning($"{Tag} GoatBarnModeButton register failed: {ex.Message}");
-            }
-        }
-
-        private static void SubscribeLayoutPref<T>(MelonPreferences_Entry<T> entry)
-        {
-            if (entry == null) return;
-            try
-            {
-                entry.OnEntryValueChanged.Subscribe((oldValue, newValue) => RebuildLiveRows());
-            }
-            catch (Exception ex)
-            {
-                LiveStockMarketMod.Log.Warning(
-                    $"{Tag} GoatBarnModeButton: could not watch pref '{entry.Identifier}' ({ex.Message}); reselect the barn to apply changes.");
             }
         }
 
@@ -176,11 +157,11 @@ namespace LiveStockMarket.Patches
             }
         }
 
-        // ── Live placement prefs (clamped to sane ranges) ─────────────────────
-        private static float ButtonWidth  => Mathf.Clamp(LiveStockMarketMod.cfgButtonWidth?.Value  ?? 95, 40f, 300f);
-        private static float ButtonHeight => Mathf.Clamp(LiveStockMarketMod.cfgButtonHeight?.Value ?? 47, 20f, 80f);
-        private static float PosX         => Mathf.Clamp01(LiveStockMarketMod.cfgButtonPosX?.Value ?? 0.56f);
-        private static float PosY         => Mathf.Clamp01(LiveStockMarketMod.cfgButtonPosY?.Value ?? 0.40f);
+        // ── Placement on the barn portrait (dialed in during development) ─────────────────────
+        private const float ButtonWidth  = 95f;
+        private const float ButtonHeight = 47f;
+        private const float PosX         = 0.56f;   // across the portrait, 0 = left edge
+        private const float PosY         = 0.40f;   // up the portrait, 0 = bottom edge
 
         private static void InjectButtons(Component window, GoatBarn barn)
         {
