@@ -48,6 +48,41 @@ Items have no missing-mod path in Farthest Frontier. A save that contains wool, 
 5. Open the trading center. Wool has a row right away (greyed until a merchant carries it). Merchants rolled after the mod loaded bring wool; a merchant already on the road in the save keeps its old cargo.
 6. Save, reload. Wool is still in storage and still ticked in the filter. Untick wool in one storehouse, save, reload: it stays unticked (the marker makes the saved filter authoritative).
 
+## Step 3 (current): Shearing
+
+A Sheep barn's herd yields wool instead of milk, through the game's own per-animal harvest loop (the one the chicken coop reuses for eggs). Goats convert in place: click **Sheep** and the herd is sheep, click **Goats** and it's goats again. Trader goats delivered to a Sheep barn are sheep by virtue of the barn.
+
+| Piece | File | Notes |
+|---|---|---|
+| Product | `Patches/ShearingPatches.cs` | Postfix on the `milkingItemID` getter returns wool for a Sheep-mode goat barn. The harvest loop, capacity bundle, availability check, produced-item icons, and yearly production tracking all read it. |
+| Numbers | `Systems/SheepShearing.cs` | Every goat barn shares one herd setup asset, so a Sheep barn gets its own clone (same guid, so saves still resolve to the vanilla asset) with the shearing numbers, assigned to both the building field and the herd. |
+| Fleece growth | `Systems/SheepShearing.cs` | Each barn counts days in Sheep mode. Wool per sheep is `wool per sheep × sheep-days ÷ growth days`, recomputed daily and capped at a full fleece; growth restarts the day after the season ends. A goat barn flipped to Sheep at the season start has no sheep-days and shears nothing, and every sheep-day is a day with no milk, so flip-flopping gains nothing. Days as sheep bank across a switch to Goats. Saved in the barn payload (`LSM2`). |
+| Switching | `Systems/SheepShearing.cs` | Animals mid-session lose the rest of the session and take the new mode's cooldown; everyone else's cooldown is clamped to the new mode's value, so a shorn sheep turned goat isn't locked out of milking for a year. |
+| Take-out | `Patches/ShearingPatches.cs` | Vanilla creates one take-out request per barn at `Awake`, before the mode is known, so every goat barn gets a permanent second request for wool, and the availability check drives each request from its own product's count. Leftover milk still leaves a Sheep barn. |
+
+Shearing sliders, all live (they rewrite every Sheep barn's clone):
+
+| Preference | Default | Meaning |
+|---|---|---|
+| `ShearSeasonStartDay` | 78 | First day of the year Sheep barns shear. |
+| `ShearSeasonEndDay` | 200 | Last day. Growth restarts the day after. |
+| `ShearCooldownDays` | 300 | Days before a shorn sheep can be shorn again. Once a year. |
+| `WoolPerSheep` | 4 | Yield of a full fleece per shearing. |
+| `WoolGrowthDays` | 240 | Sheep-days for a full fleece. 240 is season end back to season start. |
+| `WoolSecondsPerUnit` | 10 | Herder time per unit of wool. Milk uses 10. |
+| `SheepBarnWoolCapacity` | 300 | Wool a Sheep barn holds before haulers take it out. |
+
+### In-game checks for step 3
+
+For a quick test, set the sliders to season 1 to 365, growth 1, cooldown 5, and keep the rest. Restore the defaults afterwards.
+
+1. Launch and look for `ShearingPatches: patched LivestockBuilding.milkingItemID` plus the five `patched LivestockBuilding.*` lines (take-out request, workers ×2, milk + wool take-out, wool growth).
+2. Switch a goat barn with a herd and a herder to **Sheep**. The log prints `Shearing: '...' → Sheep (sheep-days banked 0/...)`, and the barn window's product storage line shows wool instead of milk.
+3. Let days pass. With the quick settings the herder starts shearing after a day or two; wool appears in the barn's storage and the settlement count climbs. Haulers take it to a storehouse once the barn reports no more work or hits capacity.
+4. Switch back to **Goats**: the log reports sessions ended and cooldowns clamped, and the storage line shows milk again. Any wool left in the barn is still hauled out.
+5. Save and reload with a Sheep barn: the log shows `restored mode=Sheep (... sheep-days N)` and `shearing setup applied`.
+6. With the default numbers, a barn switched to Sheep during the season shears nothing that year and a full fleece the next spring.
+
 ## Tuning the button placement in-game
 
 The four **Buttons** preferences apply live. Open the barn window, press **F10**, open **Live-Stock Market**, and drag the sliders. Each change rebuilds the row on the open window. If a change doesn't show, click another building and then the barn again.

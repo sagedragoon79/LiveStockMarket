@@ -6,7 +6,7 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v0.2.4
+//  Live-Stock Market  v0.3.1
 //  A wool production chain for Farthest Frontier, built in steps. By SageDragoon.
 //
 //  Step 1 (done, verified in-game): a Goats / Sheep mode toggle on the vanilla
@@ -34,7 +34,7 @@ using LiveStockMarket.Systems;
 //  game-systems/items-system.md (with the September 4, 2026 corrections).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.2.4", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "0.3.1", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -42,7 +42,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "0.2.4";
+        internal const string Version     = "0.3.1";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -73,6 +73,15 @@ namespace LiveStockMarket
         internal static MelonPreferences_Entry<bool>    cfgTradersAlwaysStockWool;
         internal static MelonPreferences_Entry<KeyCode> cfgTestWoolKey;     // with Ctrl+Shift held
         internal static MelonPreferences_Entry<int>     cfgTestWoolAmount;
+
+        // Step 3 — shearing numbers (live; applied to every Sheep barn's setup clone).
+        internal static MelonPreferences_Entry<int>   cfgShearSeasonStartDay;
+        internal static MelonPreferences_Entry<int>   cfgShearSeasonEndDay;
+        internal static MelonPreferences_Entry<int>   cfgShearCooldownDays;
+        internal static MelonPreferences_Entry<int>   cfgWoolPerSheep;
+        internal static MelonPreferences_Entry<float> cfgWoolSecondsPerUnit;
+        internal static MelonPreferences_Entry<int>   cfgWoolGrowthDays;
+        internal static MelonPreferences_Entry<int>   cfgSheepBarnWoolCapacity;
 
         public override void OnInitializeMelon()
         {
@@ -108,6 +117,28 @@ namespace LiveStockMarket
                 display_name: "Test: Add Wool Amount",
                 description: "How much wool the test hotkey adds per press.");
 
+            cfgShearSeasonStartDay = cfgCategory.CreateEntry("ShearSeasonStartDay", 78,
+                display_name: "Shearing Season Start (day of year)",
+                description: "First day of the year on which Sheep barns shear. Goat milking uses 78. Applies live.");
+            cfgShearSeasonEndDay = cfgCategory.CreateEntry("ShearSeasonEndDay", 200,
+                display_name: "Shearing Season End (day of year)",
+                description: "Last day of the year on which Sheep barns shear. Applies live.");
+            cfgShearCooldownDays = cfgCategory.CreateEntry("ShearCooldownDays", 300,
+                display_name: "Shearing Cooldown (days)",
+                description: "Days before a shorn sheep can be shorn again. 300 = once a year. Applies live.");
+            cfgWoolPerSheep = cfgCategory.CreateEntry("WoolPerSheep", 4,
+                display_name: "Wool Per Sheep (full growth)",
+                description: "Wool a fully grown fleece yields per shearing. Scaled down when the barn has fewer sheep-days than the growth period. Applies live.");
+            cfgWoolSecondsPerUnit = cfgCategory.CreateEntry("WoolSecondsPerUnit", 10f,
+                display_name: "Worker Seconds Per Wool",
+                description: "Herder time per unit of wool. Milk uses 10. Applies live.");
+            cfgWoolGrowthDays = cfgCategory.CreateEntry("WoolGrowthDays", 240,
+                display_name: "Fleece Growth (days)",
+                description: "Days in Sheep mode for a full fleece; yield is proportional below that. Growth restarts the day after the season ends, so 240 = season end (200) back to season start (78). Applies live.");
+            cfgSheepBarnWoolCapacity = cfgCategory.CreateEntry("SheepBarnWoolCapacity", 300,
+                display_name: "Sheep Barn Wool Capacity",
+                description: "How much wool a Sheep barn holds before haulers must take it out. Milk uses 300. Applies live.");
+
             // Optional soft dependency — renders the prefs in Keep Clarity's F10 panel.
             // "LiveStockMarket" sorts after "KeepClarity", so KC is already loaded here.
             KeepClarityIntegration.TryRegisterAll();
@@ -131,12 +162,19 @@ namespace LiveStockMarket
 
             // ── Step 1: Goats / Sheep mode toggle on the goat barn ───────────
             GoatBarnNaming.Register();                       // "Sheep Barn" name follows the mode (subscribes first)
+            SheepShearing.Register();                        // step 3: setup asset + shearing rules follow the mode
             GoatBarnSaveLoadPatches.Register(HarmonyInst);   // persistence — never feature-gated (see file header)
-            GoatBarnLoadPatches.Register(HarmonyInst);       // load-phase hook (step 1: name re-apply + log)
+            GoatBarnLoadPatches.Register(HarmonyInst);       // load-phase hook: name + shearing setup re-apply
             GoatBarnNamePatches.Register(HarmonyInst);       // name re-apply when vanilla regenerates it (upgrade)
             GoatBarnModeButtonPatches.Register(HarmonyInst); // info-window buttons + live title
 
-            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded. Step 1 toggle + step 2 ItemWool (traders, storage, icon).");
+            // ── Step 3: shearing ─────────────────────────────────────────────
+            ShearingPatches.Register(HarmonyInst);           // harvest loop yields wool for Sheep barns
+            foreach (var e in new[] { cfgShearSeasonStartDay, cfgShearSeasonEndDay, cfgShearCooldownDays, cfgWoolPerSheep, cfgWoolGrowthDays, cfgSheepBarnWoolCapacity })
+                e.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
+            cfgWoolSecondsPerUnit.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
+
+            Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded. Step 1 toggle, step 2 ItemWool, step 3 shearing.");
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)

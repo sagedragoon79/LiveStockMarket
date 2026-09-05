@@ -1,6 +1,7 @@
 using System;
 using HarmonyLib;
 using LiveStockMarket.Systems;
+// (SheepShearing lives in LiveStockMarket.Systems too)
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  GoatBarnNamePatches
@@ -52,7 +53,14 @@ namespace LiveStockMarket.Patches
         {
             try
             {
-                if (__instance is GoatBarn barn) GoatBarnNaming.Apply(barn);
+                if (__instance is GoatBarn barn)
+                {
+                    GoatBarnNaming.Apply(barn);
+                    // A NEW instance (fresh build, tier upgrade) starts with the goat
+                    // asset in its field; if the position already says Sheep, point the
+                    // field at the sheep clone before any herd is created or adopted.
+                    SheepShearing.ApplyMode(barn, onSwitch: false);
+                }
             }
             catch (Exception ex)
             {

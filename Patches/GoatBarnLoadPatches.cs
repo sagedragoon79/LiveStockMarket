@@ -61,10 +61,14 @@ namespace LiveStockMarket.Patches
                 // manager wasn't reachable during Load. Idempotent.
                 GoatBarnNaming.Apply(barn);
 
-                // Step 1: no behavior to apply. Later steps branch on `mode` here.
+                // Step 3: the herd now exists (vanilla created or re-adopted it just
+                // before this postfix) — point it at the Sheep setup asset and rebuild
+                // the product capacity bundle. No-op for Goats.
+                SheepShearing.ApplyMode(barn, onSwitch: false);
+
                 if (mode != GoatBarnModeStore.DefaultMode)
                     LiveStockMarketMod.Log.Msg(
-                        $"{Tag} Load-finalize: '{barn.gameObject.name}' is in {mode} mode as '{barn.displayName}' (step 1: no behavior change).");
+                        $"{Tag} Load-finalize: '{barn.gameObject.name}' is in {mode} mode as '{barn.displayName}' (shearing setup applied).");
             }
             catch (Exception ex)
             {

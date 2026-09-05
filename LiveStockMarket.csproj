@@ -110,6 +110,7 @@
     <Compile Include="Systems\WoolIcon.cs" />
     <Compile Include="Systems\WoolTrade.cs" />
     <Compile Include="Systems\WoolTestHotkey.cs" />
+    <Compile Include="Systems\SheepShearing.cs" />
     <Compile Include="Patches\GoatBarnSaveLoadPatches.cs" />
     <Compile Include="Patches\GoatBarnLoadPatches.cs" />
     <Compile Include="Patches\GoatBarnNamePatches.cs" />
@@ -117,6 +118,7 @@
     <Compile Include="Patches\LocalizationPatches.cs" />
     <Compile Include="Patches\WoolItemPatches.cs" />
     <Compile Include="Patches\WoolStoragePatches.cs" />
+    <Compile Include="Patches\ShearingPatches.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <!-- Self-contained single-DLL install: the wool icon rides inside the assembly.

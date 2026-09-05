@@ -61,6 +61,22 @@ namespace LiveStockMarket
                 Reg("Testing", LiveStockMarketMod.cfgTestWoolAmount,
                     Meta("Add Wool Amount", "How much wool the hotkey adds per press.", min: 1, max: 200, step: 1, order: 1));
 
+                // Step 3: shearing numbers, all live (they rewrite every Sheep barn's setup clone).
+                Reg("Shearing", LiveStockMarketMod.cfgShearSeasonStartDay,
+                    Meta("Season Start (day of year)", "First day Sheep barns shear. Goat milking starts on 78.", min: 1, max: 365, step: 1, order: 0));
+                Reg("Shearing", LiveStockMarketMod.cfgShearSeasonEndDay,
+                    Meta("Season End (day of year)", "Last day Sheep barns shear.", min: 1, max: 365, step: 1, order: 1));
+                Reg("Shearing", LiveStockMarketMod.cfgShearCooldownDays,
+                    Meta("Cooldown (days)", "Days before a shorn sheep can be shorn again. 300 = once a year.", min: 1, max: 400, step: 1, order: 2));
+                Reg("Shearing", LiveStockMarketMod.cfgWoolPerSheep,
+                    Meta("Wool Per Sheep", "Yield of a fully grown fleece per shearing.", min: 0, max: 50, step: 1, order: 3));
+                Reg("Shearing", LiveStockMarketMod.cfgWoolGrowthDays,
+                    Meta("Fleece Growth (days)", "Days in Sheep mode for a full fleece; proportional below that. Growth restarts the day after the season ends and banks across a switch to Goats.", min: 1, max: 730, step: 1, order: 4));
+                Reg("Shearing", LiveStockMarketMod.cfgWoolSecondsPerUnit,
+                    Meta("Worker Seconds Per Wool", "Herder time per unit of wool. Milk uses 10.", min: 1f, max: 600f, step: 1f, order: 5));
+                Reg("Shearing", LiveStockMarketMod.cfgSheepBarnWoolCapacity,
+                    Meta("Sheep Barn Wool Capacity", "Wool a Sheep barn holds before haulers take it out. Milk uses 300.", min: 10, max: 5000, step: 10, order: 6));
+
                 Log?.Msg($"{LiveStockMarketMod.LogTag} Registered with the Keep Clarity settings panel.");
             }
             catch (Exception e)
