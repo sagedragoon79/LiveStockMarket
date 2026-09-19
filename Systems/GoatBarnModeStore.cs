@@ -5,7 +5,7 @@ using UnityEngine;
 namespace LiveStockMarket.Systems
 {
     /// <summary>
-    /// Per-barn animal mode: Goats (vanilla) or Sheep (Live-Stock Market). This is
+    /// Per-barn animal mode: Goats (vanilla), Sheep or Pigs (Live-Stock Market). This is
     /// the state behind the [Goats]/[Sheep] toggle injected on the goat barn info
     /// panel.
     ///
@@ -22,7 +22,8 @@ namespace LiveStockMarket.Systems
     public enum GoatBarnMode
     {
         Goats = 0, // vanilla — the barn keeps its goats
-        Sheep = 1, // Live-Stock Market — wool flock (step 1: label only)
+        Sheep = 1, // Live-Stock Market — wool flock
+        Pigs  = 2, // Live-Stock Market — pig herd: mushrooms, meat, tallow
     }
 
     public static class GoatBarnModeStore
@@ -54,7 +55,7 @@ namespace LiveStockMarket.Systems
         /// <summary>True for a raw int that is a known mode — used to reject
         /// garbage read from a legacy (pre-mod) save.</summary>
         public static bool IsValid(int raw)
-            => raw == (int)GoatBarnMode.Goats || raw == (int)GoatBarnMode.Sheep;
+            => raw == (int)GoatBarnMode.Goats || raw == (int)GoatBarnMode.Sheep || raw == (int)GoatBarnMode.Pigs;
 
         public static GoatBarnMode GetMode(Component barn)
         {
@@ -63,6 +64,7 @@ namespace LiveStockMarket.Systems
         }
 
         public static bool IsSheep(Component barn) => GetMode(barn) == GoatBarnMode.Sheep;
+        public static bool IsPigs(Component barn)  => GetMode(barn) == GoatBarnMode.Pigs;
 
         /// <summary>Player-initiated change (from the toggle button). Stores, logs,
         /// and notifies subscribers. A no-op when the mode is already set.</summary>

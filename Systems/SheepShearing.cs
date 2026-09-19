@@ -24,6 +24,17 @@ namespace LiveStockMarket.Systems
         public SingleItemRequest WoolRequest;
         /// <summary>Days spent in Sheep mode since growth last restarted (capped at growth days). Saved.</summary>
         public int SheepDays;
+        /// <summary>This barn's clone of the goat asset carrying the pig numbers (no harvest, faster breeding).</summary>
+        public LivestockHerdSetupData PigSetup;
+        /// <summary>Permanent take-out request for mushrooms (every goat barn has one).</summary>
+        public SingleItemRequest MushroomRequest;
+        /// <summary>Fractional mushrooms carried between days (truffle pigs). Not saved.</summary>
+        public float MushroomAccumulator;
+        /// <summary>First mushroom delivery logged (once per session).</summary>
+        public bool LoggedTruffles;
+        /// <summary>Tree count last reported in the log (−1 = never); the rate line repeats when it changes.</summary>
+        public int LastTreesLogged = -1;
+        public bool LoggedTruffleWinter;
 
         public static SheepBarnState Get(GoatBarn barn) => barn != null ? barn.GetComponent<SheepBarnState>() : null;
 
@@ -121,8 +132,11 @@ namespace LiveStockMarket.Systems
                     state.GoatAsset = barn.herdSetupData;
                 if (state.GoatAsset == null) return;
 
-                bool sheep = GoatBarnModeStore.IsSheep(barn);
-                var target = sheep ? EnsureSheepSetup(state) : state.GoatAsset;
+                var mode = GoatBarnModeStore.GetMode(barn);
+                bool sheep = mode == GoatBarnMode.Sheep;
+                var target = mode == GoatBarnMode.Sheep ? EnsureSheepSetup(state)
+                           : mode == GoatBarnMode.Pigs  ? EnsurePigSetup(state)
+                           : state.GoatAsset;
                 if (target == null) return;
 
                 barn.herdSetupData = target;
@@ -133,13 +147,14 @@ namespace LiveStockMarket.Systems
                 }
                 UpdateSetupYield(state);
                 SheepVisuals.ApplyToBarn(barn);   // step 4: the look follows the mode on every path (toggle, load, upgrade, adoption)
+                PigVisuals.ApplyToBarn(barn);
 
                 if (onSwitch)
                 {
                     ClampAnimals(barn, target.milkingSessionCooldownInDays);
-                    RefreshProducerRegistration(barn, sheep);
+                    RefreshProducerRegistration(barn, mode);
                     LiveStockMarketMod.Log.Msg(
-                        $"{Tag} Shearing: '{barn.displayName}' → {(sheep ? "Sheep" : "Goats")} " +
+                        $"{Tag} Shearing: '{barn.displayName}' → {mode} " +
                         $"(sheep-days banked {state.SheepDays}/{GrowthDays}, fleece now {CurrentYield(state)} per sheep).");
                 }
             }
@@ -158,6 +173,18 @@ namespace LiveStockMarket.Systems
             clone.hideFlags = HideFlags.DontUnloadUnusedAsset;
             state.SheepSetup = clone;
             ApplyPrefsTo(state);
+            return clone;
+        }
+
+        private static LivestockHerdSetupData EnsurePigSetup(SheepBarnState state)
+        {
+            if (state.PigSetup != null) return state.PigSetup;
+            if (state.GoatAsset == null) return null;
+            var clone = UnityEngine.Object.Instantiate(state.GoatAsset);   // same guid string: saves resolve to the goat asset
+            clone.name = state.GoatAsset.name + " (LSM Pigs)";
+            clone.hideFlags = HideFlags.DontUnloadUnusedAsset;
+            state.PigSetup = clone;
+            PigHusbandry.ApplyPrefsTo(clone, state.GoatAsset);
             return clone;
         }
 
@@ -192,9 +219,10 @@ namespace LiveStockMarket.Systems
                 var live = SheepBarnState.Live.ToArray();
                 foreach (var state in live)
                 {
-                    if (state == null || state.SheepSetup == null || state.Barn == null) continue;
-                    ApplyPrefsTo(state);
-                    if (GoatBarnModeStore.IsSheep(state.Barn) && state.Barn.herd != null)
+                    if (state == null || state.Barn == null) continue;
+                    if (state.SheepSetup != null) ApplyPrefsTo(state);
+                    if (state.PigSetup != null && state.GoatAsset != null) PigHusbandry.ApplyPrefsTo(state.PigSetup, state.GoatAsset);
+                    if (GoatBarnModeStore.GetMode(state.Barn) != GoatBarnMode.Goats && state.Barn.herd != null)
                         state.Barn.herd = state.Barn.herd;   // capacity bundle follows the new cap
                 }
             }
@@ -223,6 +251,7 @@ namespace LiveStockMarket.Systems
                     state.SheepDays = Mathf.Min(state.SheepDays + 1, GrowthDays);
 
                 UpdateSetupYield(state);
+                PigHusbandry.OnDayPassed(barn, state);   // truffle pigs: mushrooms from woodland grazing
             }
             catch (Exception ex)
             {
@@ -246,7 +275,7 @@ namespace LiveStockMarket.Systems
         }
 
         // ── Helpers ───────────────────────────────────────────────────────────
-        private static int DayOfYear()
+        internal static int DayOfYear()
         {
             try
             {
@@ -287,7 +316,7 @@ namespace LiveStockMarket.Systems
                 LiveStockMarketMod.Log.Msg($"{Tag} Shearing: '{barn.displayName}' switch — {ended} session(s) ended, {clamped} cooldown(s) clamped to {newCooldown:F0} days.");
         }
 
-        private static void RefreshProducerRegistration(GoatBarn barn, bool sheep)
+        private static void RefreshProducerRegistration(GoatBarn barn, GoatBarnMode mode)
         {
             try
             {
@@ -296,8 +325,10 @@ namespace LiveStockMarket.Systems
                 var wbm = gm != null ? gm.workBucketManager : null;
                 if (rm == null || wbm == null) return;
                 string milkName = wbm.itemByItemIDRO.TryGetValue(ItemID.Milk, out var milk) ? milk.name : "ItemMilk";
-                rm.AddOrRemoveBuildingFromManufacturerDict(milkName, barn, remove: sheep);
-                rm.AddOrRemoveBuildingFromManufacturerDict(WoolItem.ItemName, barn, remove: !sheep);
+                string mushroomName = wbm.itemMushroom != null ? wbm.itemMushroom.name : "ItemMushroom";
+                rm.AddOrRemoveBuildingFromManufacturerDict(milkName, barn, remove: mode != GoatBarnMode.Goats);
+                rm.AddOrRemoveBuildingFromManufacturerDict(WoolItem.ItemName, barn, remove: mode != GoatBarnMode.Sheep);
+                rm.AddOrRemoveBuildingFromManufacturerDict(mushroomName, barn, remove: mode != GoatBarnMode.Pigs);
             }
             catch (Exception ex)
             {

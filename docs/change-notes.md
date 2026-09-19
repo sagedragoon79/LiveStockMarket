@@ -2,6 +2,22 @@
 
 Newest first. Paste the BBCode block of a version into the Workshop change note when publishing it.
 
+## 1.1.0 — September 19, 2026
+
+```
+[h2]1.1.0 — Pigs[/h2]
+[list]
+[*]Pigs: a third mode on every goat barn, Goats / Sheep / Pigs. A Pig Barn's animals become pigs with their own body and animations, newborns and purchased goats arrive as pigs, and the herders stop milking.
+[*]Truffle pigs: from spring through autumn each grown pig turns up mushrooms in proportion to the trees inside the barn's grazing area (full rate at 12 trees, 0.05 per pig per day). They collect in the barn and haulers carry them out. No herder time.
+[*]Butchering a pig gives twice the meat, twice the tallow and one and a half times the hide of a goat. Pigs breed at twice the goat rate and produce one and a half times the waste. All five are settings.
+[*]Pig sounds: grunts now and then, quiet breathing up close, a squeal at the butcher, and a grunt when you click a pig or a Pig Barn instead of the goat's bell and bleat, all through the game's sound sliders. A Sounds settings group: on or off, volumes, grunt interval, range, and which grunt answers a click.
+[*]Tallow candles: a second Candle Shop recipe that uses tallow instead of wax, twice the wax count by default.
+[*]Pig name and icons on the animals and in the barn window; Pig Barn / Large Pig Barn naming.
+[*]Fixed: the Trading Center's Keep in Stock checkbox for wool, Winter Boots, Winter Cloak and Woolen Clothes unticked itself when the window was reopened, and the target stock dropped after each sale. It now stays ticked and holds the target.
+[*]Settings: a Pigs group (meat, tallow, hide, breeding and waste multipliers, mushrooms per pig per day, trees for full yield, mushroom capacity), a Recipes group (tallow candles on or off, tallow per wax), and Pig Model / Pig Size under Visuals.
+[/list]
+```
+
 ## 1.0.0 — September 5, 2026
 
 ```

@@ -97,6 +97,16 @@
       <HintPath>$(ManagedDir)\UnityEngine.AssetBundleModule.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <!-- Animator / AnimatorStateInfo / Avatar (pig body) -->
+    <Reference Include="UnityEngine.AnimationModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AnimationModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <!-- AudioSource / AudioClip / AudioMixerGroup (pig voices) -->
+    <Reference Include="UnityEngine.AudioModule">
+      <HintPath>$(ManagedDir)\UnityEngine.AudioModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
     <!-- TextMeshPro (injected button labels / tooltips) -->
     <Reference Include="Unity.TextMeshPro">
       <HintPath>$(ManagedDir)\Unity.TextMeshPro.dll</HintPath>
@@ -128,11 +138,18 @@
     <Compile Include="Patches\WoolStoragePatches.cs" />
     <Compile Include="Patches\ShearingPatches.cs" />
     <Compile Include="Patches\GarmentPatches.cs" />
+    <Compile Include="Patches\TradingPostPatches.cs" />
     <Compile Include="Systems\SheepAssets.cs" />
     <Compile Include="Systems\SheepVisuals.cs" />
     <Compile Include="Patches\SheepVisualPatches.cs" />
     <Compile Include="Patches\GarmentDisplayPatches.cs" />
     <Compile Include="Patches\SheepBarnUiPatches.cs" />
+    <Compile Include="Patches\PigSoundPatches.cs" />
+    <Compile Include="Systems\PigAssets.cs" />
+    <Compile Include="Systems\PigVisuals.cs" />
+    <Compile Include="Systems\PigHusbandry.cs" />
+    <Compile Include="Systems\PigSounds.cs" />
+    <Compile Include="Systems\AltRecipes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <!-- Self-contained single-DLL install: the wool icon rides inside the assembly.
@@ -160,6 +177,23 @@
     </EmbeddedResource>
     <EmbeddedResource Include="art\DoubleSheepIcon256x256.png">
       <LogicalName>LSM.sheep_image.png</LogicalName>
+    </EmbeddedResource>
+    <!-- Pigs: the animated body (bundle) and its icons, once drawn. -->
+    <EmbeddedResource Include="embedded\pig">
+      <LogicalName>LSM.pig</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\PigIcon256x256.png" Condition="Exists('art\PigIcon256x256.png')">
+      <LogicalName>LSM.pig_icon.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\DoublePigIcon256x256.png" Condition="Exists('art\DoublePigIcon256x256.png')">
+      <LogicalName>LSM.pig_image.png</LogicalName>
+    </EmbeddedResource>
+    <!-- Optional animal-window portraits (vanilla hiRezImg art is 192x256 RGBA, subject on transparency, no frame). -->
+    <EmbeddedResource Include="art\PigPortrait192x256.png" Condition="Exists('art\PigPortrait192x256.png')">
+      <LogicalName>LSM.pig_portrait.png</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="art\SheepPortrait192x256.png" Condition="Exists('art\SheepPortrait192x256.png')">
+      <LogicalName>LSM.sheep_portrait.png</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

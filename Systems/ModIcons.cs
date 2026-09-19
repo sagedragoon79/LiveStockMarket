@@ -20,19 +20,23 @@ namespace LiveStockMarket.Systems
 
         private static string Tag => LiveStockMarketMod.LogTag;
 
-        /// <summary>Returns the sprite for an embedded resource (null if it can't be built).</summary>
-        public static Sprite Get(string resourceName, string looseFileName)
+        /// <summary>
+        /// Returns the sprite for an embedded resource (null if it can't be built).
+        /// <paramref name="optional"/>: art that may not exist yet (a portrait) — a missing
+        /// resource is not worth a warning.
+        /// </summary>
+        public static Sprite Get(string resourceName, string looseFileName, bool optional = false)
         {
             if (_cache.TryGetValue(resourceName, out var cached) && cached != null) return cached;
             if (_failed.Contains(resourceName)) return null;
 
-            var sprite = Load(resourceName, looseFileName);
+            var sprite = Load(resourceName, looseFileName, optional);
             if (sprite != null) _cache[resourceName] = sprite;
             else _failed.Add(resourceName);
             return sprite;
         }
 
-        private static Sprite Load(string resourceName, string looseFileName)
+        private static Sprite Load(string resourceName, string looseFileName, bool optional)
         {
             try
             {
@@ -60,7 +64,7 @@ namespace LiveStockMarket.Systems
                     {
                         if (stream == null)
                         {
-                            LiveStockMarketMod.Log.Warning($"{Tag} ModIcons: embedded resource '{resourceName}' missing.");
+                            if (!optional) LiveStockMarketMod.Log.Warning($"{Tag} ModIcons: embedded resource '{resourceName}' missing.");
                             return null;
                         }
                         png = new byte[stream.Length];

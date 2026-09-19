@@ -69,6 +69,49 @@ namespace LiveStockMarket
                     Meta("Sheep Model", "Animals in a Sheep barn use the sheep model, name and icon. Off = goats keep their look. Live.", order: 0));
                 Reg("Visuals", LiveStockMarketMod.cfgSheepUseGameShader,
                     Meta("Game Shader On Sheep", "On: the goat's own material with the sheep textures. Off: the bundle's plain material, if the game shader renders the sheep wrong. Live.", order: 1));
+                Reg("Visuals", LiveStockMarketMod.cfgPigVisuals,
+                    Meta("Pig Model", "Animals in a Pig barn use the animated pig body, name and icon. Live.", order: 2));
+                Reg("Visuals", LiveStockMarketMod.cfgPigScale,
+                    Meta("Pig Size", "Scale of the pig body; 1 = about 1 m long. Live.", min: 0.5f, max: 2.5f, step: 0.05f, order: 3));
+
+                Reg("Pigs", LiveStockMarketMod.cfgPigMeatMultiplier,
+                    Meta("Meat Multiplier", "Meat from a butchered pig relative to a goat. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 0));
+                Reg("Pigs", LiveStockMarketMod.cfgPigTallowMultiplier,
+                    Meta("Tallow Multiplier", "Tallow from a butchered pig relative to a goat. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 1));
+                Reg("Pigs", LiveStockMarketMod.cfgPigHideMultiplier,
+                    Meta("Hide Multiplier", "Hide from a butchered pig relative to a goat. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 2));
+                Reg("Pigs", LiveStockMarketMod.cfgPigBreedingMultiplier,
+                    Meta("Breeding Multiplier", "Breeding chance and minimum births relative to goats. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 3));
+                Reg("Pigs", LiveStockMarketMod.cfgPigWasteMultiplier,
+                    Meta("Waste Multiplier", "Waste (manure) relative to goats: 1.5 = a 20-day interval instead of 30. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 4));
+                Reg("Pigs", LiveStockMarketMod.cfgPigMushroomsPerPigPerDay,
+                    Meta("Mushrooms Per Pig Per Day", "Truffle pigs: per grown pig per day in a fully wooded grazing area, spring through autumn. Live.", min: 0f, max: 1f, step: 0.01f, order: 5));
+                Reg("Pigs", LiveStockMarketMod.cfgPigMushroomTreesForFullYield,
+                    Meta("Trees For Full Yield", "Trees in the grazing area for the full mushroom rate. Live.", min: 1, max: 60, step: 1, order: 6));
+                Reg("Pigs", LiveStockMarketMod.cfgPigMushroomCapacity,
+                    Meta("Mushroom Capacity", "Mushrooms a Pig barn holds before haulers take them out. Live.", min: 10, max: 1000, step: 10, order: 7));
+
+                Reg("Sounds", LiveStockMarketMod.cfgPigSounds,
+                    Meta("Pig Sounds", "Grunts, a quiet breathing loop and the slaughter squeal from pigs. Live.", order: 0));
+                Reg("Sounds", LiveStockMarketMod.cfgPigGruntVolume,
+                    Meta("Grunt Volume", "Grunts and squeals, on top of the game's sound sliders. Live.", min: 0f, max: 1f, step: 0.05f, order: 1));
+                Reg("Sounds", LiveStockMarketMod.cfgPigBreathingVolume,
+                    Meta("Breathing Volume", "The breathing loop on every pig; 0 turns it off. Live.", min: 0f, max: 1f, step: 0.05f, order: 2));
+                Reg("Sounds", LiveStockMarketMod.cfgPigGruntIntervalMin,
+                    Meta("Grunt Interval Min (s)", "Shortest wait between grunts across all pigs. Live.", min: 1f, max: 120f, step: 1f, order: 3));
+                Reg("Sounds", LiveStockMarketMod.cfgPigGruntIntervalMax,
+                    Meta("Grunt Interval Max (s)", "Longest wait between grunts across all pigs. Live.", min: 2f, max: 300f, step: 1f, order: 4));
+                Reg("Sounds", LiveStockMarketMod.cfgPigSoundRange,
+                    Meta("Sound Range (m)", "Where a grunt fades out; breathing carries 40% of it, a squeal 150%. Live.", min: 5f, max: 200f, step: 5f, order: 5));
+                Reg("Sounds", LiveStockMarketMod.cfgPigClickSound,
+                    Meta("Pig Click Sound", "A clicked pig, and a clicked Pig Barn, grunt instead of playing the goat's sounds. Live.", order: 6));
+                Reg("Sounds", LiveStockMarketMod.cfgPigClickGrunt,
+                    Meta("Click Grunt", "0 = the click grunt made for it, 1 to 17 = one of the ambient grunts, -1 = a random one each time. Moving the slider plays it. Live.", min: -1, max: 17, step: 1, order: 7));
+
+                Reg("Recipes", LiveStockMarketMod.cfgTallowCandleEnabled,
+                    Meta("Tallow Candles", "A second Candle Shop recipe: tallow instead of wax.", restartRequired: true, order: 0));
+                Reg("Recipes", LiveStockMarketMod.cfgTallowCandleTallowMultiplier,
+                    Meta("Tallow Per Wax", "Tallow in that recipe relative to the vanilla wax count. Live.", min: 0.5f, max: 5f, step: 0.25f, order: 1));
 
                 Log?.Msg($"{LiveStockMarketMod.LogTag} Registered with the Keep Clarity settings panel.");
             }
@@ -97,7 +140,7 @@ namespace LiveStockMarket
             _registerMod.Invoke(null, new object[]
             {
                 ModId, ModDisplayName,
-                "Sheep barns, wool, shearing and wool garments. Flip a goat barn to Sheep: its animals become sheep, herders shear wool in season, and the Cobbler, Tannery and Weaver can make Winter Boots, a Winter Cloak and Woolen Clothes.",
+                "Sheep and pig barns, wool, shearing, wool garments, truffle pigs and tallow candles. Flip a goat barn to Sheep or Pigs: sheep are shorn for wool that the Cobbler, Tannery and Weaver turn into Winter Boots, a Winter Cloak and Woolen Clothes; pigs forage mushrooms in a wooded grazing area and butcher for extra meat and tallow.",
                 LiveStockMarketMod.Version,
                 null,                                        // iconResourcePath
                 new[] { 0.86f, 0.80f, 0.66f, 1f },           // wool-cream accent stripe

@@ -22,7 +22,10 @@ using LiveStockMarket.Systems;
 //      Sheep mode the prefix drives both requests itself and skips vanilla; in
 //      Goats mode it only adds the wool side (leftover wool) and lets vanilla run.
 //    • OnDayPassed (prefix): sheep-days growth and the season-start yield lock,
-//      before vanilla queues that day's animals.
+//      before vanilla queues that day's animals; truffle pigs' daily mushrooms.
+//    • Pigs mode: milkingItemID is Mushroom (product line + capacity), a third
+//      permanent take-out request carries mushrooms, and SlaughterAnimalInHerd
+//      (prefix) adds the pig's bonus meat / tallow / hide.
 // ─────────────────────────────────────────────────────────────────────────────
 
 namespace LiveStockMarket.Patches
@@ -56,7 +59,8 @@ namespace LiveStockMarket.Patches
                 PatchOne(harmony, "OnWorkerAdded", new[] { typeof(IWorker) }, prefix: null, postfix: nameof(OnWorkerAddedPostfix), what: "wool request workers");
                 PatchOne(harmony, "OnWorkerRemoved", new[] { typeof(IWorker) }, prefix: null, postfix: nameof(OnWorkerRemovedPostfix), what: "wool request workers");
                 PatchOne(harmony, "CheckWorkAvailabilityForTransferringMilk", new[] { typeof(bool) }, prefix: nameof(TransferAvailabilityPrefix), postfix: null, what: "milk + wool take-out");
-                PatchOne(harmony, "OnDayPassed", new[] { typeof(DayPassedEvent) }, prefix: nameof(OnDayPassedPrefix), postfix: null, what: "wool growth");
+                PatchOne(harmony, "OnDayPassed", new[] { typeof(DayPassedEvent) }, prefix: nameof(OnDayPassedPrefix), postfix: null, what: "wool growth + truffle pigs");
+                PatchOne(harmony, "SlaughterAnimalInHerd", new[] { typeof(LivestockAnimal) }, prefix: nameof(SlaughterPrefix), postfix: null, what: "pig butchering yields");
                 // SetLoadedHerd does `herdToSet.herdSetupData = herdSetupData` (the building's
                 // field) on every adoption path — tier upgrade (PostRelocate), Start for an
                 // abandoned herd, load finalize. A new instance's field is the goat asset, so
@@ -95,8 +99,12 @@ namespace LiveStockMarket.Patches
         // ── Product ───────────────────────────────────────────────────────────
         private static void MilkingItemIdPostfix(LivestockBuilding __instance, ref ItemID __result)
         {
-            if (WoolItem.IsRegistered && __instance is GoatBarn barn && GoatBarnModeStore.IsSheep(barn))
-                __result = WoolItem.ItemId;
+            if (!WoolItem.IsRegistered || !(__instance is GoatBarn barn)) return;
+            switch (GoatBarnModeStore.GetMode(barn))
+            {
+                case GoatBarnMode.Sheep: __result = WoolItem.ItemId; break;
+                case GoatBarnMode.Pigs:  __result = ItemID.Mushroom; break;   // truffle pigs: the product line, capacity bundle and take-out follow
+            }
         }
 
         // ── Wool take-out request ─────────────────────────────────────────────
@@ -106,31 +114,38 @@ namespace LiveStockMarket.Patches
             {
                 if (!(__instance is GoatBarn barn) || !WoolItem.IsRegistered) return;
                 var state = SheepBarnState.GetOrAdd(barn);
-                if (state == null || state.WoolRequest != null) return;
+                if (state == null || (state.WoolRequest != null && state.MushroomRequest != null)) return;
 
                 var gm = UnitySingleton<GameManager>.Instance;
                 var wbm = gm != null ? gm.workBucketManager : null;
                 var requester = _logisticsRequesterProp?.GetValue(barn, null) as LogisticsRequester;
                 if (wbm == null || requester == null || barn.storage == null)
                 {
-                    LiveStockMarketMod.Log.Warning($"{Tag} ShearingPatches: managers not ready for '{barn.name}' — no wool take-out request.");
+                    LiveStockMarketMod.Log.Warning($"{Tag} ShearingPatches: managers not ready for '{barn.name}' — no wool / mushroom take-out requests.");
                     return;
                 }
-                if (!wbm.itemByItemIDRO.TryGetValue(WoolItem.ItemId, out var wool)) return;
-
-                var bucket = wbm.GetCanStoreWorkBucketByItem(wbm, wool);
-                var request = new SingleItemRequest(WoolItem.ItemId, barn.storage, ItemAction.TakeOut,
-                    new LogisticsRequestID(RequestTypeIdentifier.SingleItem, wool.name), bucket,
-                    LogisticsRequest.RequestTag.None, 1u);
-                request.SetVillagerState(VillagerState.State.StockpilingMilk);
-                request.storageExclusionFlags |= StorageFlags.TempStorage;
-                requester.AddItemRequest(request);
-                state.WoolRequest = request;
+                if (state.WoolRequest == null && wbm.itemByItemIDRO.TryGetValue(WoolItem.ItemId, out var wool))
+                    state.WoolRequest = CreateTakeOut(barn, wbm, requester, wool);
+                if (state.MushroomRequest == null && wbm.itemMushroom != null)
+                    state.MushroomRequest = CreateTakeOut(barn, wbm, requester, wbm.itemMushroom);
             }
             catch (Exception ex)
             {
                 LiveStockMarketMod.Log.Warning($"{Tag} ShearingPatches.SetupLogisticsRequests: {ex.Message}");
             }
+        }
+
+        /// <summary>A permanent take-out request for one product, sized by TransferAvailabilityPrefix.</summary>
+        private static SingleItemRequest CreateTakeOut(GoatBarn barn, WorkBucketManager wbm, LogisticsRequester requester, Item item)
+        {
+            var bucket = wbm.GetCanStoreWorkBucketByItem(wbm, item);
+            var request = new SingleItemRequest(item.itemID, barn.storage, ItemAction.TakeOut,
+                new LogisticsRequestID(RequestTypeIdentifier.SingleItem, item.name), bucket,
+                LogisticsRequest.RequestTag.None, 1u);
+            request.SetVillagerState(VillagerState.State.StockpilingMilk);
+            request.storageExclusionFlags |= StorageFlags.TempStorage;
+            requester.AddItemRequest(request);
+            return request;
         }
 
         private static void OnWorkerAddedPostfix(LivestockBuilding __instance, IWorker workerAdded)
@@ -139,8 +154,9 @@ namespace LiveStockMarket.Patches
             {
                 if (!(__instance is GoatBarn barn) || !(workerAdded is ILogisticsWorker worker)) return;
                 var state = SheepBarnState.Get(barn);
-                state?.WoolRequest?.AssignWorker(worker, LogisticsAssignment.AssignmentCategory.Default,
-                    new LogisticsAssignment.AssignmentPriority(VillagerOccupationManufacturer.sharedManufacturingPriorityModifier, RequestPriority.High));
+                var priority = new LogisticsAssignment.AssignmentPriority(VillagerOccupationManufacturer.sharedManufacturingPriorityModifier, RequestPriority.High);
+                state?.WoolRequest?.AssignWorker(worker, LogisticsAssignment.AssignmentCategory.Default, priority);
+                state?.MushroomRequest?.AssignWorker(worker, LogisticsAssignment.AssignmentCategory.Default, priority);
             }
             catch (Exception ex)
             {
@@ -153,7 +169,9 @@ namespace LiveStockMarket.Patches
             try
             {
                 if (!(__instance is GoatBarn barn) || !(workerRemoved is ILogisticsWorker worker)) return;
-                SheepBarnState.Get(barn)?.WoolRequest?.UnassignWorker(worker);
+                var state = SheepBarnState.Get(barn);
+                state?.WoolRequest?.UnassignWorker(worker);
+                state?.MushroomRequest?.UnassignWorker(worker);
             }
             catch (Exception ex)
             {
@@ -168,22 +186,24 @@ namespace LiveStockMarket.Patches
             {
                 if (!(__instance is GoatBarn barn)) return true;
                 var state = SheepBarnState.Get(barn);
-                if (state == null || state.WoolRequest == null || _checkToRequest == null) return true;
+                if (state == null || _checkToRequest == null) return true;
 
                 if (!validForWorkAvailability)
                 {
-                    state.WoolRequest.ClearAllCounts();
+                    state.WoolRequest?.ClearAllCounts();
+                    state.MushroomRequest?.ClearAllCounts();
                     return true;   // vanilla clears the milk request
                 }
 
                 var gm = UnitySingleton<GameManager>.Instance;
                 var wbm = gm != null ? gm.workBucketManager : null;
                 if (wbm == null || barn.storage == null) return true;
-                bool sheep = GoatBarnModeStore.IsSheep(barn);
+                var mode = GoatBarnModeStore.GetMode(barn);
+                bool sheep = mode == GoatBarnMode.Sheep, pigs = mode == GoatBarnMode.Pigs;
 
                 // Wool: in Sheep mode follow vanilla's rule (take out when no more work
-                // is expected or the barn is full); in Goats mode any leftover leaves.
-                if (wbm.itemByItemIDRO.TryGetValue(WoolItem.ItemId, out var wool))
+                // is expected or the barn is full); in any other mode leftovers leave.
+                if (state.WoolRequest != null && wbm.itemByItemIDRO.TryGetValue(WoolItem.ItemId, out var wool))
                 {
                     uint woolCount = barn.storage.GetItemCount(wool);
                     uint woolFree = barn.storage.GetNumberOfUnreservedItems(wool);
@@ -201,10 +221,20 @@ namespace LiveStockMarket.Patches
                     CheckToRequest(state.WoolRequest, should, woolFree);
                 }
 
-                if (!sheep) return true;   // milkingItemID is Milk: vanilla handles the milk request
+                // Mushrooms: in Pigs mode haul when a stack is worth the trip or the barn is
+                // full (they trickle in daily); in any other mode leftovers leave.
+                if (state.MushroomRequest != null && wbm.itemMushroom != null)
+                {
+                    uint count = barn.storage.GetItemCount(wbm.itemMushroom);
+                    uint free = barn.storage.GetNumberOfUnreservedItems(wbm.itemMushroom);
+                    bool should = free != 0 && (!pigs || free >= 10 || count >= (uint)PigHusbandry.MushroomCapacity);
+                    CheckToRequest(state.MushroomRequest, should, free);
+                }
 
-                // Sheep mode: vanilla would size the MILK request from the WOOL count.
-                // Drive the milk request from the milk count instead, then skip vanilla.
+                if (!sheep && !pigs) return true;   // milkingItemID is Milk: vanilla handles the milk request
+
+                // Sheep / Pigs mode: vanilla would size the MILK request from the wool or
+                // mushroom count. Drive the milk request from the milk count instead, then skip vanilla.
                 var milkRequest = _milkRequestField?.GetValue(barn) as ItemRequest;
                 if (milkRequest != null && wbm.itemByItemIDRO.TryGetValue(ItemID.Milk, out var milk))
                 {
@@ -229,6 +259,12 @@ namespace LiveStockMarket.Patches
         private static void OnDayPassedPrefix(LivestockBuilding __instance)
         {
             if (__instance is GoatBarn barn) SheepShearing.OnDayPassed(barn);
+        }
+
+        // ── Butchering (PREFIX: the animal is still in the herd, the carcass not yet added) ──
+        private static void SlaughterPrefix(LivestockBuilding __instance, LivestockAnimal animalToSlaughter)
+        {
+            if (__instance is GoatBarn barn) PigHusbandry.OnSlaughter(barn, animalToSlaughter);
         }
 
         // ── Herd adoption ─────────────────────────────────────────────────────

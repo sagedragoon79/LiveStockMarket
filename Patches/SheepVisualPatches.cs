@@ -53,6 +53,7 @@ namespace LiveStockMarket.Patches
                 var barn = __instance != null ? __instance.homeBuilding as GoatBarn : null;
                 if (barn == null || animalToAdd == null) return;
                 SheepVisuals.Apply(animalToAdd, SheepVisuals.WantSheep(barn));
+                PigVisuals.Apply(animalToAdd, PigVisuals.WantPig(barn));
             }
             catch (Exception ex)
             {

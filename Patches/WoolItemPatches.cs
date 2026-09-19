@@ -140,7 +140,7 @@ namespace LiveStockMarket.Patches
         private static void WorkBucketManagerAwakePrefix()
         {
             ModItems.EnsureRegistered();
-            GarmentRecipes.EnsureInjected();
+            GarmentRecipes.EnsureInjected(); AltRecipes.EnsureInjected();
         }
 
         private static void WorkBucketManagerAwakePostfix(WorkBucketManager __instance)

@@ -28,6 +28,8 @@ namespace LiveStockMarket.Systems
         private const string GoatWord       = "Goat";
         private const string SheepWord      = "Sheep";
         private const string FallbackSuffix = " (Sheep)";
+        private const string PigWord        = "Pig";
+        private const string PigSuffix      = " (Pigs)";
 
         // CEMonoBehaviour.localizationManager is protected — resolved once by reflection.
         private static PropertyInfo _locProp;
@@ -69,12 +71,17 @@ namespace LiveStockMarket.Systems
         }
 
         /// <summary>"Goat Barn" → "Sheep Barn"; a name without the word gets the suffix.</summary>
-        public static string SheepName(string vanilla)
+        public static string SheepName(string vanilla) => Swap(vanilla, SheepWord, FallbackSuffix);
+
+        /// <summary>"Goat Barn" → "Pig Barn"; a name without the word gets the suffix.</summary>
+        public static string PigName(string vanilla) => Swap(vanilla, PigWord, PigSuffix);
+
+        private static string Swap(string vanilla, string replacement, string suffix)
         {
             if (string.IsNullOrEmpty(vanilla)) return vanilla;
             int i = vanilla.IndexOf(GoatWord, StringComparison.OrdinalIgnoreCase);
-            if (i < 0) return vanilla + FallbackSuffix;
-            string word = char.IsUpper(vanilla[i]) ? SheepWord : SheepWord.ToLowerInvariant();
+            if (i < 0) return vanilla + suffix;
+            string word = char.IsUpper(vanilla[i]) ? replacement : replacement.ToLowerInvariant();
             return vanilla.Substring(0, i) + word + vanilla.Substring(i + GoatWord.Length);
         }
 
@@ -83,7 +90,12 @@ namespace LiveStockMarket.Systems
         {
             string vanilla = VanillaName(barn);
             if (vanilla == null) return null;
-            return GoatBarnModeStore.IsSheep(barn) ? SheepName(vanilla) : vanilla;
+            switch (GoatBarnModeStore.GetMode(barn))
+            {
+                case GoatBarnMode.Sheep: return SheepName(vanilla);
+                case GoatBarnMode.Pigs:  return PigName(vanilla);
+                default: return vanilla;
+            }
         }
 
         /// <summary>Sets displayName to the mode's name. Returns true when it changed.

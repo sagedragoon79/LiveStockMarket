@@ -74,10 +74,9 @@ namespace LiveStockMarket.Patches
             {
                 var barn = StatusBuilding.GetValue(widget) as GoatBarn;
                 if (barn == null || (only != null && barn != only)) return;
-                bool sheep = SheepVisuals.WantSheep(barn);
                 var map = GlobalAssets.uiAssetMap;
-                Set(StatusAnimalImg, widget, sheep ? SheepVisuals.Icon  : map?.goatIcon);
-                Set(StatusHerdImg,   widget, sheep ? SheepVisuals.Image : map?.goatOverpopulationIcon);
+                Set(StatusAnimalImg, widget, ModeSingle(barn) ?? map?.goatIcon);
+                Set(StatusHerdImg,   widget, ModeHerd(barn)   ?? map?.goatOverpopulationIcon);
             }
             catch (Exception ex)
             {
@@ -91,14 +90,28 @@ namespace LiveStockMarket.Patches
             {
                 var barn = ControlsBuilding.GetValue(widget) as GoatBarn;
                 if (barn == null || (only != null && barn != only)) return;
-                bool sheep = SheepVisuals.WantSheep(barn);
-                var sprite = sheep ? SheepVisuals.Icon : GlobalAssets.uiAssetMap?.goatIcon;
+                var sprite = ModeSingle(barn) ?? GlobalAssets.uiAssetMap?.goatIcon;
                 foreach (var f in ControlsAnimalImgs) Set(f, widget, sprite);
             }
             catch (Exception ex)
             {
                 LiveStockMarketMod.Log.Warning($"{Tag} SheepBarnUiPatches.ApplyControls: {ex.Message}");
             }
+        }
+
+        /// <summary>The mode's animal icon, or null to keep the goat's (no art yet, or visuals off).</summary>
+        private static Sprite ModeSingle(GoatBarn barn)
+        {
+            if (SheepVisuals.WantSheep(barn)) return SheepVisuals.Icon;
+            if (PigVisuals.WantPig(barn)) return PigVisuals.Icon;
+            return null;
+        }
+
+        private static Sprite ModeHerd(GoatBarn barn)
+        {
+            if (SheepVisuals.WantSheep(barn)) return SheepVisuals.Image;
+            if (PigVisuals.WantPig(barn)) return PigVisuals.Image ?? PigVisuals.Icon;
+            return null;
         }
 
         private static void Set(FieldInfo field, object widget, Sprite sprite)

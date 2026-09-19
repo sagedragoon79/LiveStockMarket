@@ -6,13 +6,16 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v1.0.0 — a wool economy for Farthest Frontier. By SageDragoon.
+//  Live-Stock Market  v1.1.0 — a wool economy for Farthest Frontier. By SageDragoon.
 //
 //  • Goat barns get a Goats / Sheep switch (buttons on the barn portrait). A
 //    Sheep barn is named "Sheep Barn", its animals wear a sheep model, and its
 //    herders shear wool in season instead of milking. The mode is saved.
 //  • Wool is a new item: stored with hides, counted, traded by the agricultural and
 //    hunter-and-herder merchants, with an icon and English strings.
+//  • Pigs: a third barn mode. Own animated body, mushrooms from woodland grazing
+//    (truffle pigs), more meat and tallow when butchered, fast breeding. Plus a
+//    tallow candle recipe at the Candle Shop.
 //  • Three wool garments — Winter Boots (Cobbler Shop), Winter Cloak (Tannery),
 //    Woolen Clothes (Weaver) — are trade goods and warmer replacements for
 //    shoes, hide coats and linen clothes; villagers prefer them while in stock.
@@ -23,7 +26,7 @@ using LiveStockMarket.Systems;
 //  building-work-modes, skinned-mesh-swap-on-vanilla-rig).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "1.0.0", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "1.1.0", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -31,7 +34,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "1.0.0";
+        internal const string Version     = "1.1.0";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -69,6 +72,31 @@ namespace LiveStockMarket
         // Visuals (live).
         internal static MelonPreferences_Entry<bool> cfgSheepVisuals;        // sheep model, name, icon in Sheep barns
         internal static MelonPreferences_Entry<bool> cfgSheepUseGameShader;  // goat material + sheep textures vs. bundle material
+
+        // Pigs (live unless noted).
+        internal static MelonPreferences_Entry<float> cfgPigMeatMultiplier;
+        internal static MelonPreferences_Entry<float> cfgPigTallowMultiplier;
+        internal static MelonPreferences_Entry<float> cfgPigHideMultiplier;
+        internal static MelonPreferences_Entry<float> cfgPigBreedingMultiplier;
+        internal static MelonPreferences_Entry<float> cfgPigWasteMultiplier;
+        internal static MelonPreferences_Entry<float> cfgPigMushroomsPerPigPerDay;
+        internal static MelonPreferences_Entry<int>   cfgPigMushroomTreesForFullYield;
+        internal static MelonPreferences_Entry<int>   cfgPigMushroomCapacity;
+        internal static MelonPreferences_Entry<bool>  cfgPigVisuals;
+        internal static MelonPreferences_Entry<float> cfgPigScale;
+        // Pig sounds (live).
+        internal static MelonPreferences_Entry<bool>  cfgPigSounds;
+        internal static MelonPreferences_Entry<float> cfgPigGruntVolume;
+        internal static MelonPreferences_Entry<float> cfgPigBreathingVolume;
+        internal static MelonPreferences_Entry<float> cfgPigGruntIntervalMin;
+        internal static MelonPreferences_Entry<float> cfgPigGruntIntervalMax;
+        internal static MelonPreferences_Entry<float> cfgPigSoundRange;
+        internal static MelonPreferences_Entry<bool>  cfgPigClickSound;
+        internal static MelonPreferences_Entry<int>   cfgPigClickGrunt;
+
+        // Recipes.
+        internal static MelonPreferences_Entry<bool>  cfgTallowCandleEnabled;           // restart
+        internal static MelonPreferences_Entry<float> cfgTallowCandleTallowMultiplier;  // live
 
         public override void OnInitializeMelon()
         {
@@ -121,6 +149,68 @@ namespace LiveStockMarket
                 display_name: "Game Shader On Sheep",
                 description: "On: the sheep uses the goat's own material with the sheep textures. Off: the bundle's plain material. Applies live.");
 
+            cfgPigMeatMultiplier = cfgCategory.CreateEntry("PigMeatMultiplier", 2f,
+                display_name: "Pig Meat Multiplier",
+                description: "Meat from a butchered pig relative to a goat. The extra is added straight to the barn's output. Applies live.");
+            cfgPigTallowMultiplier = cfgCategory.CreateEntry("PigTallowMultiplier", 2f,
+                display_name: "Pig Tallow Multiplier",
+                description: "Tallow from a butchered pig relative to a goat. Applies live.");
+            cfgPigHideMultiplier = cfgCategory.CreateEntry("PigHideMultiplier", 1.5f,
+                display_name: "Pig Hide Multiplier",
+                description: "Hide from a butchered pig relative to a goat. Applies live.");
+            cfgPigBreedingMultiplier = cfgCategory.CreateEntry("PigBreedingMultiplier", 2f,
+                display_name: "Pig Breeding Multiplier",
+                description: "Breeding chance and minimum births of a Pig barn relative to goats. Applies live.");
+            cfgPigWasteMultiplier = cfgCategory.CreateEntry("PigWasteMultiplier", 1.5f,
+                display_name: "Pig Waste Multiplier",
+                description: "Waste (manure) a Pig barn produces relative to goats: 1.5 shortens the goat's 30-day interval to 20 days. Applies live.");
+            cfgPigMushroomsPerPigPerDay = cfgCategory.CreateEntry("PigMushroomsPerPigPerDay", 0.05f,
+                display_name: "Mushrooms Per Pig Per Day",
+                description: "Truffle pigs: mushrooms each grown pig finds per day when its grazing area is fully wooded, spring through autumn. Applies live.");
+            cfgPigMushroomTreesForFullYield = cfgCategory.CreateEntry("PigMushroomTreesForFullYield", 12,
+                display_name: "Trees For Full Mushroom Yield",
+                description: "Trees inside the grazing area for the full rate; fewer trees scale it down, none means no mushrooms. Applies live.");
+            cfgPigMushroomCapacity = cfgCategory.CreateEntry("PigMushroomCapacity", 100,
+                display_name: "Pig Barn Mushroom Capacity",
+                description: "Mushrooms a Pig barn holds before haulers must take them out. Applies live.");
+            cfgPigVisuals = cfgCategory.CreateEntry("PigVisuals", true,
+                display_name: "Pig Model",
+                description: "Animals in a Pig barn use the animated pig body, name and icon. Off = goats keep their look. Applies live.");
+            cfgPigScale = cfgCategory.CreateEntry("PigScale", 1f,
+                display_name: "Pig Size",
+                description: "Scale of the pig body. 1 = the model's real size (about 1 m long). Applies live.");
+
+            cfgPigSounds = cfgCategory.CreateEntry("PigSounds", true,
+                display_name: "Pig Sounds",
+                description: "Grunts, a quiet breathing loop and the slaughter squeal from pigs. Applies live.");
+            cfgPigGruntVolume = cfgCategory.CreateEntry("PigGruntVolume", 0.6f,
+                display_name: "Pig Grunt Volume",
+                description: "Volume of grunts and squeals (0 to 1), on top of the game's sound sliders. Applies live.");
+            cfgPigBreathingVolume = cfgCategory.CreateEntry("PigBreathingVolume", 0.25f,
+                display_name: "Pig Breathing Volume",
+                description: "Volume of the breathing loop on every pig (0 to 1); 0 turns it off. Applies live.");
+            cfgPigGruntIntervalMin = cfgCategory.CreateEntry("PigGruntIntervalMin", 6f,
+                display_name: "Pig Grunt Interval Min",
+                description: "Shortest wait in seconds between grunts across all pigs. Applies live.");
+            cfgPigGruntIntervalMax = cfgCategory.CreateEntry("PigGruntIntervalMax", 20f,
+                display_name: "Pig Grunt Interval Max",
+                description: "Longest wait in seconds between grunts across all pigs. Applies live.");
+            cfgPigSoundRange = cfgCategory.CreateEntry("PigSoundRange", 40f,
+                display_name: "Pig Sound Range",
+                description: "Distance in meters at which a grunt fades out; breathing carries 40% of it, a squeal 150%. Applies live.");
+            cfgPigClickSound = cfgCategory.CreateEntry("PigClickSound", true,
+                display_name: "Pig Click Sound",
+                description: "A clicked pig, and a clicked Pig Barn, grunt instead of playing the goat's sounds. Applies live.");
+            cfgPigClickGrunt = cfgCategory.CreateEntry("PigClickGrunt", 0,
+                display_name: "Pig Click Grunt",
+                description: "Which grunt answers a click: 0 = the click grunt made for it, 1 to 17 = one of the ambient grunts, -1 = a random ambient grunt each time. Changing it plays the grunt. Applies live.");
+            cfgTallowCandleEnabled = cfgCategory.CreateEntry("TallowCandleEnabled", true,
+                display_name: "Tallow Candle Recipe",
+                description: "Adds a second candle recipe at the Candle Shop that uses tallow instead of wax. Requires game restart.");
+            cfgTallowCandleTallowMultiplier = cfgCategory.CreateEntry("TallowCandleTallowMultiplier", 2f,
+                display_name: "Tallow Per Wax",
+                description: "Tallow in the tallow candle recipe relative to the wax in the vanilla one. 2 = twice as much. Applies live.");
+
             // Optional soft dependency — renders the prefs in Keep Clarity's F10 panel.
             // "LiveStockMarket" sorts after "KeepClarity", so KC is already loaded here.
             KeepClarityIntegration.TryRegisterAll();
@@ -143,6 +233,7 @@ namespace LiveStockMarket
             WoolItemPatches.Register(HarmonyInst);    // item lists, work buckets, ItemInfo, storage placement, icons, recipe lines
             WoolStoragePatches.Register(HarmonyInst); // storage filter marker for saves that predate an item — never feature-gated
             GarmentPatches.Register(HarmonyInst);     // garments as wearables: inventory substitution + seek requests
+            TradingPostPatches.Register(HarmonyInst); // Trading Center keep-in-stock entries for mod items
             cfgGarmentWoolCost.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
             cfgGarmentInputMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => GarmentRecipes.ApplyPrefs());
 
@@ -165,15 +256,35 @@ namespace LiveStockMarket
             SheepVisualPatches.Register(HarmonyInst);        // new animals + the "Shearing Sheep" herder label
             GarmentDisplayPatches.Register(HarmonyInst);     // worn garments show their own icon in the villager window
             SheepBarnUiPatches.Register(HarmonyInst);        // barn window: sheep icons on the status block and control buttons
+            PigSoundPatches.Register(HarmonyInst);           // a clicked pig grunts instead of the goat's bell and bleat
             cfgSheepVisuals.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
             cfgSheepUseGameShader.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepVisuals.ApplyAll());
 
+            // ── Pigs + recipes ───────────────────────────────────────────────
+            PigVisuals.Register();                           // strings; the look is applied from SheepShearing.ApplyMode
+            cfgPigBreedingMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
+            cfgPigWasteMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
+            cfgPigMushroomCapacity.OnEntryValueChanged.Subscribe((oldValue, newValue) => SheepShearing.OnPrefsChanged());
+            cfgPigVisuals.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigVisuals.ApplyAll());
+            foreach (var e in new[] { cfgPigGruntVolume, cfgPigBreathingVolume, cfgPigGruntIntervalMin, cfgPigGruntIntervalMax, cfgPigSoundRange })
+                e.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigSounds.ApplyPrefs());
+            cfgPigSounds.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigSounds.ApplyPrefs());
+            cfgPigClickGrunt.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigSounds.PreviewClick());
+            cfgPigScale.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigVisuals.ApplyAll());
+            cfgTallowCandleTallowMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => AltRecipes.ApplyPrefs());
+
             Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded.");
+        }
+
+        public override void OnUpdate()
+        {
+            if (cfgModEnabled != null && cfgModEnabled.Value) PigSounds.Tick();
         }
 
         public override void OnSceneWasLoaded(int buildIndex, string sceneName)
         {
             InMap = sceneName == "Map";
+            PigSounds.OnSceneLoaded();
             if (!InMap) return;
 
             // Per-map reset. The Load postfix repopulates the store from the save
@@ -192,7 +303,10 @@ namespace LiveStockMarket
             // reloaded per game, so recipes are injected here (Farther Fabricating's
             // hook) and again from WorkBucketManager.Awake as a safety net.
             if (sceneName == "Frontier" && HarmonyInst != null)
+            {
                 GarmentRecipes.EnsureInjected();
+                AltRecipes.EnsureInjected();
+            }
         }
     }
 }

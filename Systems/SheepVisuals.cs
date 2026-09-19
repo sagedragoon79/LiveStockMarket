@@ -63,6 +63,8 @@ namespace LiveStockMarket.Systems
 
         public static Sprite Icon  => ModIcons.Get("LSM.sheep_icon.png",  "sheep_icon.png");
         public static Sprite Image => ModIcons.Get("LSM.sheep_image.png", "sheep_image.png");
+        /// <summary>Optional 192×256 portrait for the animal's window (vanilla hiRezImg size); the single icon stands in without it.</summary>
+        public static Sprite Portrait => ModIcons.Get("LSM.sheep_portrait.png", "sheep_portrait.png", optional: true);
 
         // One rebound sheep mesh per goat mesh: female, male and young prefabs each carry their own bindposes.
         private static readonly Dictionary<Mesh, Mesh> _meshByGoatMesh = new Dictionary<Mesh, Mesh>();
@@ -523,7 +525,7 @@ namespace LiveStockMarket.Systems
                     bb.displayName = "LSM_Sheep_Name";
                     bb.descLocTag  = "LSM_Sheep_Description";
                     var icon = Icon;
-                    if (icon != null) { bb.icon = icon; bb.hiRezImg = icon; }   // single sheep on the animal; the double is the barn's herd icon
+                    if (icon != null) { bb.icon = icon; bb.hiRezImg = Portrait ?? icon; }   // single sheep on the animal (a 192×256 portrait when drawn); the double is the barn's herd icon
                 }
                 else
                 {

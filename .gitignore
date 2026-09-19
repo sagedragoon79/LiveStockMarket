@@ -9,3 +9,9 @@ obj/
 # Unity bundler project (huge Library/, regenerable from tools/unity + art/sheep)
 /unity/
 *.blend1
+
+# Upstream pig sources: they live in the author's game project and are too large for this repo.
+# The build needs only art/Pig/PigARPRigged.blend (Auto-Rig Pro source) and art/Pig/export/.
+art/Pig/PigARPRigged_highpoly.blend
+art/Pig/tripo_convert_*.fbx
+art/Pig/tripo_convert_*.fbm/

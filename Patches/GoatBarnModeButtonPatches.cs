@@ -158,7 +158,7 @@ namespace LiveStockMarket.Patches
         }
 
         // ── Placement on the barn portrait (dialed in during development) ─────────────────────
-        private const float ButtonWidth  = 95f;
+        private const float ButtonWidth  = 68f;   // three across the portrait
         private const float ButtonHeight = 47f;
         private const float PosX         = 0.56f;   // across the portrait, 0 = left edge
         private const float PosY         = 0.40f;   // up the portrait, 0 = bottom edge
@@ -196,6 +196,7 @@ namespace LiveStockMarket.Patches
             var current = GoatBarnModeStore.GetMode(barn);
             CreateButton(row.transform, "Goats", GoatBarnMode.Goats, barn, current, gameFont, gameFontSize, w, h);
             CreateButton(row.transform, "Sheep", GoatBarnMode.Sheep, barn, current, gameFont, gameFontSize, w, h);
+            CreateButton(row.transform, "Pigs", GoatBarnMode.Pigs, barn, current, gameFont, gameFontSize, w, h);
 
             // Event-driven refresh: rebuild when this barn's mode changes so the
             // active highlight updates on click.
@@ -236,7 +237,7 @@ namespace LiveStockMarket.Patches
         /// </summary>
         private static string PlaceRow(Component window, GameObject row, RectTransform rowRT, float w, float h)
         {
-            float rowW = 2f * w + Spacing + 2f * PadX;
+            float rowW = 3f * w + 2f * Spacing + 2f * PadX;
             float rowH = h + 2f * PadY;
 
             var win = window as UIBuildingInfoWindow_New;
@@ -370,7 +371,9 @@ namespace LiveStockMarket.Patches
                 case GoatBarnMode.Goats:
                     return "<b>Goats</b>\n<i>Vanilla goat barn — milk and meat.</i>";
                 case GoatBarnMode.Sheep:
-                    return "<b>Sheep</b>\n<i>Wool flock (Live-Stock Market).\nStep 1: mode only — behavior unchanged for now.</i>";
+                    return "<b>Sheep</b>\n<i>Wool flock — shorn once a year in season.\nMeat and hides as goats.</i>";
+                case GoatBarnMode.Pigs:
+                    return "<b>Pigs</b>\n<i>Pig herd — more meat and tallow when butchered,\nbreeds fast, roots up mushrooms when grazing among trees.</i>";
                 default:
                     return mode.ToString();
             }
