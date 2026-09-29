@@ -108,6 +108,20 @@ namespace LiveStockMarket
                 Reg("Sounds", LiveStockMarketMod.cfgPigClickGrunt,
                     Meta("Click Grunt", "0 = the click grunt made for it, 1 to 17 = one of the ambient grunts, -1 = a random one each time. Moving the slider plays it. Live.", min: -1, max: 17, step: 1, order: 7));
 
+                const string capTip = " Buildings set to the maximum follow it; lowering it below a herd sends the extras to the butcher. Live.";
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityCowBarn,
+                    Meta("Cow Barn", "Maximum herd size relative to vanilla." + capTip, min: 1f, max: 2f, step: 0.1f, order: 0));
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityGoatBarn,
+                    Meta("Goat Barn", "Maximum herd size relative to vanilla, for goats, sheep and pigs alike." + capTip, min: 1f, max: 2f, step: 0.1f, order: 1));
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityChickenCoop,
+                    Meta("Chicken Coop", "Maximum flock size relative to vanilla." + capTip, min: 1f, max: 2f, step: 0.1f, order: 2));
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityStable,
+                    Meta("Stable", "Maximum number of horses relative to vanilla." + capTip, min: 1f, max: 2f, step: 0.1f, order: 3));
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityDogKennel,
+                    Meta("Dog Kennel", "Maximum number of dogs relative to vanilla." + capTip, min: 1f, max: 2f, step: 0.1f, order: 4));
+                Reg("Capacity", LiveStockMarketMod.cfgCapacityCatKennel,
+                    Meta("Cat Kennel", "Maximum number of cats relative to vanilla." + capTip, min: 1f, max: 2f, step: 0.1f, order: 5));
+
                 Reg("Recipes", LiveStockMarketMod.cfgTallowCandleEnabled,
                     Meta("Tallow Candles", "A second Candle Shop recipe: tallow instead of wax.", restartRequired: true, order: 0));
                 Reg("Recipes", LiveStockMarketMod.cfgTallowCandleTallowMultiplier,
@@ -140,7 +154,7 @@ namespace LiveStockMarket
             _registerMod.Invoke(null, new object[]
             {
                 ModId, ModDisplayName,
-                "Sheep and pig barns, wool, shearing, wool garments, truffle pigs and tallow candles. Flip a goat barn to Sheep or Pigs: sheep are shorn for wool that the Cobbler, Tannery and Weaver turn into Winter Boots, a Winter Cloak and Woolen Clothes; pigs forage mushrooms in a wooded grazing area and butcher for extra meat and tallow.",
+                "Sheep and pig barns, wool, shearing, wool garments, truffle pigs, tallow candles and bigger herds. Flip a goat barn to Sheep or Pigs: sheep are shorn for wool that the Cobbler, Tannery and Weaver turn into Winter Boots, a Winter Cloak and Woolen Clothes; pigs forage mushrooms in a wooded grazing area and butcher for extra meat and tallow. Every livestock building can hold up to twice its vanilla herd.",
                 LiveStockMarketMod.Version,
                 null,                                        // iconResourcePath
                 new[] { 0.86f, 0.80f, 0.66f, 1f },           // wool-cream accent stripe

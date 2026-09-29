@@ -128,9 +128,11 @@ namespace LiveStockMarket.Systems
                 var state = SheepBarnState.GetOrAdd(barn);
                 if (state == null) return;
 
-                if (state.GoatAsset == null && barn.herdSetupData != null && barn.herdSetupData != state.SheepSetup)
+                if (state.GoatAsset == null && barn.herdSetupData != null && barn.herdSetupData != state.SheepSetup
+                    && barn.herdSetupData != state.PigSetup && !LivestockCapacity.IsClone(barn.herdSetupData))
                     state.GoatAsset = barn.herdSetupData;
                 if (state.GoatAsset == null) return;
+                LivestockCapacity.Ensure(state.GoatAsset, barn);   // 1.2.0: the Goat Barn capacity multiplier
 
                 var mode = GoatBarnModeStore.GetMode(barn);
                 bool sheep = mode == GoatBarnMode.Sheep;
@@ -138,6 +140,7 @@ namespace LiveStockMarket.Systems
                            : mode == GoatBarnMode.Pigs  ? EnsurePigSetup(state)
                            : state.GoatAsset;
                 if (target == null) return;
+                if (target != state.GoatAsset) LivestockCapacity.RegisterClone(target, state.GoatAsset);   // one herd maximum in every mode
 
                 barn.herdSetupData = target;
                 if (barn.herd != null)
@@ -172,6 +175,7 @@ namespace LiveStockMarket.Systems
             clone.name = state.GoatAsset.name + " (LSM Sheep)";
             clone.hideFlags = HideFlags.DontUnloadUnusedAsset;
             state.SheepSetup = clone;
+            LivestockCapacity.RegisterClone(clone, state.GoatAsset);
             ApplyPrefsTo(state);
             return clone;
         }
@@ -184,6 +188,7 @@ namespace LiveStockMarket.Systems
             clone.name = state.GoatAsset.name + " (LSM Pigs)";
             clone.hideFlags = HideFlags.DontUnloadUnusedAsset;
             state.PigSetup = clone;
+            LivestockCapacity.RegisterClone(clone, state.GoatAsset);
             PigHusbandry.ApplyPrefsTo(clone, state.GoatAsset);
             return clone;
         }

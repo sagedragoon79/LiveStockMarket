@@ -1,6 +1,6 @@
 # Live-Stock Market
 
-A wool economy and a pig pen for Farthest Frontier (v1.1.x, MelonLoader 0.7). Turn a goat barn into a sheep barn or a pig barn: shear wool every year and craft it into warmer clothing, or let pigs root up mushrooms in the woods and butcher them for extra meat and tallow. By SageDragoon.
+A wool economy, a pig pen and room for bigger herds in Farthest Frontier (v1.1.x, MelonLoader 0.7). Turn a goat barn into a sheep barn or a pig barn: shear wool every year and craft it into warmer clothing, or let pigs root up mushrooms in the woods and butcher them for extra meat and tallow. Every livestock building can hold up to twice its vanilla herd. By SageDragoon.
 
 ## What it adds
 
@@ -18,7 +18,9 @@ A wool economy and a pig pen for Farthest Frontier (v1.1.x, MelonLoader 0.7). Tu
 | Winter Cloak | Tannery | the hide coat's leather x2 + 5 wool | Hide Coat |
 | Woolen Clothes | Weaver | the linen clothes' flax x2 + 5 wool | Linen Clothes |
 
-Each is 25% warmer than the item it replaces and priced 25% higher. Villagers take a garment when one is in stock and fall back to the vanilla item otherwise; whatever they wear stays on until it wears out.
+Each is 25% warmer than the item it replaces and priced 25% higher. Villagers take whichever of the garment or the vanilla item they reach first; whatever they wear stays on until it wears out. Worn garments show in the villager window's Villager Storage panel, under Clothing.
+
+**Urgent clothing errands.** Every villager, soldiers included, treats fetching missing shoes, linen clothes, a hide coat or a wool garment as urgent, the way the game treats an archer's missing arrows. Clothing trips come before ordinary hauling and stocking, which matters most in big towns where those errands pile up.
 
 **Pig barns.** Switch a barn to Pigs and it becomes a Pig Barn. Its animals turn into pigs, with their own body and animations, and the herders stop milking: pigs are not harvested. Pigs eat the same fodder as goats, breed at twice the goat rate, produce one and a half times the waste for the compost yard, and butcher for twice the meat, twice the tallow and one and a half times the hide of a goat. All five numbers are settings.
 
@@ -27,6 +29,24 @@ Each is 25% warmer than the item it replaces and priced 25% higher. Villagers ta
 **Pig sounds.** Pigs grunt now and then, breathe quietly when you are close, and squeal when they are butchered. Click a pig, or a Pig Barn, and it answers with a grunt instead of the goat's bell and bleat. The sounds run through the game's own volume sliders. Volume, interval, range and the click grunt are settings.
 
 **Tallow candles.** The Candle Shop gets a second candle recipe beside the vanilla one: tallow instead of wax, twice the wax count by default. Set the mix with the usual sliders.
+
+**Bigger herds.** Each livestock building type has its own capacity setting, from vanilla up to twice the vanilla maximum herd size: cow barns, goat barns, chicken coops, stables, dog kennels and cat kennels. The goat barn setting covers goats, sheep and pigs alike, so switching a barn's herd never changes its maximum.
+
+- The herd-size slider in the building's window reaches the new maximum, and new buildings start at it.
+- A building already set to the maximum follows the setting when you change it in game. A herd size you picked by hand stays.
+- Lowering a setting below a herd sends the extra animals to the butcher, the same as lowering the herd size in the building's window.
+- Bigger herds eat more fodder, graze their area harder and fill with waste sooner.
+
+Vanilla maximum herd sizes, which a setting of 2 doubles:
+
+| Building | Tier 1 | Tier 2 |
+|---|---|---|
+| Cow barn | 10 | 20 |
+| Goat barn | 10 | 20 |
+| Chicken coop | 24 | none |
+| Stable | 12 | 12 |
+| Dog kennel | 12 | none |
+| Cat kennel | 12 | none |
 
 ## Installation
 
@@ -76,6 +96,12 @@ All in the `LiveStockMarket` section of `MelonPreferences.cfg`. "Live" means the
 | `PigClickGrunt` | 0 | Which grunt answers a click: 0 is the click grunt made for it, 1 to 17 picks one of the ambient grunts, -1 plays a random one each time. Changing it plays the grunt. Live. |
 | `TallowCandleEnabled` | true | The tallow candle recipe at the Candle Shop. Restart. |
 | `TallowCandleTallowMultiplier` | 2.0 | Tallow in that recipe relative to the vanilla wax count. Live. |
+| `CapacityCowBarn` | 1.0 | Maximum herd size of cow barns relative to vanilla, 1 to 2. Live. |
+| `CapacityGoatBarn` | 1.0 | Maximum herd size of goat barns relative to vanilla, 1 to 2, for goats, sheep and pigs. Live. |
+| `CapacityChickenCoop` | 1.0 | Maximum flock size of chicken coops relative to vanilla, 1 to 2. Live. |
+| `CapacityStable` | 1.0 | Maximum number of horses in a stable relative to vanilla, 1 to 2. Live. |
+| `CapacityDogKennel` | 1.0 | Maximum number of dogs in a kennel relative to vanilla, 1 to 2. Live. |
+| `CapacityCatKennel` | 1.0 | Maximum number of cats in a kennel relative to vanilla, 1 to 2. Live. |
 
 ## Known limitations
 
@@ -85,16 +111,18 @@ All in the `LiveStockMarket` section of `MelonPreferences.cfg`. "Live" means the
 - The sheep's fleece shades a little unevenly at some angles, and the barn's grazing, herd-size and divide buttons keep their goat artwork.
 - A pig's coat (pink, black or spotted) is rolled again each time the save loads, and an idle pig stands still: there is no fidget animation.
 - A walking pig's legs move slower than the ground it covers. Its walk clip has a much shorter stride than the goat's, and pigs travel at the goat's speed.
+- A building window that is open while you change a capacity setting keeps the old herd-size maximum until you reopen it.
 
 ## Removing the mod
 
 Farthest Frontier has no graceful path for items it does not know, and a save that ever changed the quota or production limit of a mod item keeps a record the game looks up by name with no null check. Before removing the mod from a save:
 
 1. Switch every Sheep barn and Pig barn back to Goats.
-2. Set the quota and production limits of wool and the three garments back to automatic.
-3. Use up or sell all wool and garments, on villagers included (they wear out).
-4. Turn the Candle Shop's tallow candle recipe off and let its current work order finish.
-5. Save. Then remove the DLL.
+2. Set every capacity setting back to 1 and let the butcher bring each herd down to its vanilla size. A herd left above it takes the crowding penalty until it shrinks.
+3. Set the quota and production limits of wool and the three garments back to automatic.
+4. Use up or sell all wool and garments, on villagers included (they wear out).
+5. Turn the Candle Shop's tallow candle recipe off and let its current work order finish.
+6. Save. Then remove the DLL.
 
 Mushrooms are a vanilla item, so a Pig barn's stock needs no cleanup. A save loaded without the mod while it still holds wool or garments logs errors for every stack and may misbehave.
 

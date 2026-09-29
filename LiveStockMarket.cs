@@ -6,7 +6,7 @@ using LiveStockMarket.Patches;
 using LiveStockMarket.Systems;
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  Live-Stock Market  v1.1.0 — a wool economy for Farthest Frontier. By SageDragoon.
+//  Live-Stock Market  v1.2.0 — sheep, pigs and bigger herds for Farthest Frontier. By SageDragoon.
 //
 //  • Goat barns get a Goats / Sheep switch (buttons on the barn portrait). A
 //    Sheep barn is named "Sheep Barn", its animals wear a sheep model, and its
@@ -19,6 +19,8 @@ using LiveStockMarket.Systems;
 //  • Three wool garments — Winter Boots (Cobbler Shop), Winter Cloak (Tannery),
 //    Woolen Clothes (Weaver) — are trade goods and warmer replacements for
 //    shoes, hide coats and linen clothes; villagers prefer them while in stock.
+//  • Herd capacity: every livestock building type (cow barn, goat barn, chicken
+//    coop, stable, dog and cat kennels) can hold up to twice its vanilla herd.
 //
 //  Layout: Systems/ (mode store, naming, shearing, items, recipes, visuals),
 //  Patches/ (Harmony). Plan and history: HANDOFF.md and docs/DEVELOPMENT.md.
@@ -26,7 +28,7 @@ using LiveStockMarket.Systems;
 //  building-work-modes, skinned-mesh-swap-on-vanilla-rig).
 // ─────────────────────────────────────────────────────────────────────────────
 
-[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "1.1.0", "SageDragoon")]
+[assembly: MelonInfo(typeof(LiveStockMarket.LiveStockMarketMod), "Live-Stock Market", "1.2.0", "SageDragoon")]
 [assembly: MelonGame("Crate Entertainment", "Farthest Frontier")]
 
 namespace LiveStockMarket
@@ -34,7 +36,7 @@ namespace LiveStockMarket
     public class LiveStockMarketMod : MelonMod
     {
         internal const string DisplayName = "Live-Stock Market";
-        internal const string Version     = "1.1.0";
+        internal const string Version     = "1.2.0";
         internal const string HarmonyId   = "com.sagedragoon.livestockmarket";
         internal const string LogTag      = "[LSM]";
 
@@ -97,6 +99,13 @@ namespace LiveStockMarket
         // Recipes.
         internal static MelonPreferences_Entry<bool>  cfgTallowCandleEnabled;           // restart
         internal static MelonPreferences_Entry<float> cfgTallowCandleTallowMultiplier;  // live
+        // Herd capacity per livestock building type, 1x to 2x of vanilla (live).
+        internal static MelonPreferences_Entry<float> cfgCapacityCowBarn;
+        internal static MelonPreferences_Entry<float> cfgCapacityGoatBarn;
+        internal static MelonPreferences_Entry<float> cfgCapacityChickenCoop;
+        internal static MelonPreferences_Entry<float> cfgCapacityStable;
+        internal static MelonPreferences_Entry<float> cfgCapacityDogKennel;
+        internal static MelonPreferences_Entry<float> cfgCapacityCatKennel;
 
         public override void OnInitializeMelon()
         {
@@ -211,6 +220,26 @@ namespace LiveStockMarket
                 display_name: "Tallow Per Wax",
                 description: "Tallow in the tallow candle recipe relative to the wax in the vanilla one. 2 = twice as much. Applies live.");
 
+            const string CapacityNote = " Buildings set to the maximum follow it; lowering it below a herd sends the extra animals to the butcher. Applies live.";
+            cfgCapacityCowBarn = cfgCategory.CreateEntry("CapacityCowBarn", 1f,
+                display_name: "Cow Barn Capacity",
+                description: "Maximum herd size of cow barns relative to vanilla, 1 to 2." + CapacityNote);
+            cfgCapacityGoatBarn = cfgCategory.CreateEntry("CapacityGoatBarn", 1f,
+                display_name: "Goat Barn Capacity",
+                description: "Maximum herd size of goat barns relative to vanilla, 1 to 2, in every mode: goats, sheep and pigs." + CapacityNote);
+            cfgCapacityChickenCoop = cfgCategory.CreateEntry("CapacityChickenCoop", 1f,
+                display_name: "Chicken Coop Capacity",
+                description: "Maximum flock size of chicken coops relative to vanilla, 1 to 2." + CapacityNote);
+            cfgCapacityStable = cfgCategory.CreateEntry("CapacityStable", 1f,
+                display_name: "Stable Capacity",
+                description: "Maximum number of horses in a stable relative to vanilla, 1 to 2." + CapacityNote);
+            cfgCapacityDogKennel = cfgCategory.CreateEntry("CapacityDogKennel", 1f,
+                display_name: "Dog Kennel Capacity",
+                description: "Maximum number of dogs in a kennel relative to vanilla, 1 to 2." + CapacityNote);
+            cfgCapacityCatKennel = cfgCategory.CreateEntry("CapacityCatKennel", 1f,
+                display_name: "Cat Kennel Capacity",
+                description: "Maximum number of cats in a kennel relative to vanilla, 1 to 2." + CapacityNote);
+
             // Optional soft dependency — renders the prefs in Keep Clarity's F10 panel.
             // "LiveStockMarket" sorts after "KeepClarity", so KC is already loaded here.
             KeepClarityIntegration.TryRegisterAll();
@@ -273,6 +302,11 @@ namespace LiveStockMarket
             cfgPigScale.OnEntryValueChanged.Subscribe((oldValue, newValue) => PigVisuals.ApplyAll());
             cfgTallowCandleTallowMultiplier.OnEntryValueChanged.Subscribe((oldValue, newValue) => AltRecipes.ApplyPrefs());
 
+            // ── Herd capacity (every livestock building) ─────────────────────
+            CapacityPatches.Register(HarmonyInst);           // herd maximum scaled before a barn loads or starts
+            foreach (var e in new[] { cfgCapacityCowBarn, cfgCapacityGoatBarn, cfgCapacityChickenCoop, cfgCapacityStable, cfgCapacityDogKennel, cfgCapacityCatKennel })
+                e.OnEntryValueChanged.Subscribe((oldValue, newValue) => LivestockCapacity.ApplyPrefs());
+
             Log.Msg($"{LogTag} {DisplayName} v{Version} — loaded.");
         }
 
@@ -294,7 +328,10 @@ namespace LiveStockMarket
             GarmentPatches.OnMapLoaded();
 
             if (cfgModEnabled.Value)
-                WoolTrade.OnMapLoaded();   // merchant goods, once the managers exist
+            {
+                WoolTrade.OnMapLoaded();          // merchant goods, once the managers exist
+                LivestockCapacity.OnMapLoaded();  // herd maxima scaled before the save's barns load
+            }
         }
 
         public override void OnSceneWasInitialized(int buildIndex, string sceneName)

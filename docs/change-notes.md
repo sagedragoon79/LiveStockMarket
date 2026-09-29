@@ -2,6 +2,21 @@
 
 Newest first. Paste the BBCode block of a version into the Workshop change note when publishing it.
 
+## 1.2.0 — September 29, 2026
+
+```
+[h2]1.2.0 — Bigger Herds[/h2]
+[list]
+[*]Capacity settings for every livestock building type: cow barn, goat barn, chicken coop, stable, dog kennel and cat kennel. Each raises the maximum herd size up to twice vanilla. The goat barn setting covers goats, sheep and pigs alike.
+[*]The herd-size slider in the building's window reaches the new maximum, and new buildings start at it. A building set to the maximum follows the setting when you change it; a herd size you picked by hand stays.
+[*]Lowering a setting below a herd sends the extra animals to the butcher, the same as lowering the herd size in the building's window.
+[*]A new Capacity group in the settings. All six apply live.
+[*]Fixed: villagers, soldiers included, went without shoes, linen clothes or a hide coat whenever any matching wool garment was in storage, even with plenty of the vanilla items. They now take whichever of the two they reach first.
+[*]Fixed: worn Winter Boots, Winter Cloak and Woolen Clothes never appeared in a villager's window. They now show in the Villager Storage panel's Clothing section beside the vanilla clothing, and building and garrison lists give soldiers and guards shoe and clothes rows.
+[*]Clothing errands are urgent: villagers and soldiers fetch missing shoes, linen clothes, a hide coat or a wool garment before ordinary hauling and stocking, with the same priority the game gives an archer's missing arrows. This should help large towns keep clothing happiness at full.
+[/list]
+```
+
 ## 1.1.0 — September 19, 2026
 
 ```

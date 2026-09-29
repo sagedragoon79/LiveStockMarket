@@ -105,7 +105,7 @@ Price is the replaced item's plus 25%, same weight and wear. No tech gate: havin
 |---|---|---|
 | Items | `Systems/ModItems.cs`, `Systems/GarmentItems.cs` | The registry that wool now shares. Each item is cloned from its template entry and re-registered per game, because the game drops its item table when a game unloads. Storage placement follows the template (boots go where shoes go). Icons with mipmaps via `Systems/ModIcons.cs`. |
 | Recipes | `Systems/GarmentRecipes.cs` | Each recipe is cloned from the producer's vanilla recipe for the replaced item (states, work units, batch size), with the inputs scaled and wool added, a fixed guid so work orders survive a reload, and the garment icon. Injected into the building table when the game scene initializes, the way Farther Fabricating does it, and again from the work-bucket manager as a safety net. |
-| Wearables | `Patches/GarmentPatches.cs` | Every warmth and "has clothing" check is an inventory query for the vanilla item on the villager's permanent inventory, so the substitution happens there: on villager inventories only, a count query for a vanilla clothing item reports the garment, and the intact-fraction query returns the garment's, scaled by the warmth multiplier. Each villager gets three garment seek requests mirroring the vanilla ones; while a garment is in stock the vanilla request drops to Low priority, so garments are preferred and vanilla is the fallback. Villagers keep a vanilla item until it wears out. |
+| Wearables | `Patches/GarmentPatches.cs` | Every warmth and "has clothing" check is an inventory query for the vanilla item on the villager's permanent inventory, so the substitution happens there: on villager inventories only, a count query for a vanilla clothing item reports the garment, and the intact-fraction query returns the garment's, scaled by the warmth multiplier. Each villager gets three garment seek requests mirroring the vanilla ones, all at High priority beside the vanilla requests, and takes whichever it reaches first. Villagers keep a vanilla item until it wears out. Up to 1.1.0 the vanilla request was dropped to Low while a garment was in stock, meant as a garments-first preference; that blocked villagers from the vanilla items entirely and was removed in 1.2.0 (see "Fix in 1.2.0" below). |
 
 Garment preferences, under **Garments** in Keep Clarity:
 
@@ -241,6 +241,26 @@ The script copies `art/Pig/export/*` into `unity/bundler/Assets/Pig/` and `art/P
 9. Hover and click a pig: the name reads "Pig" with the single pig icon, and its window shows the 192×256 portrait. Open the barn: the Misc block shows the single pig for herd health and the double pig for population, and the divide and slaughter buttons show the pig. Expect three `ModIcons: loaded 'LSM.pig_...'` lines and no `missing` line.
 10. Sounds. Expect `audio: 17 grunt(s), 6 squeal(s), breathing 15.2 s` on the `PigAssets` line, `PigSounds: routing through mixer group '...'` once pigs exist, and `PigSounds: first grunt` within about 20 s of game time. Grunts come from the pigs' positions and fade by 40 m; zoom in close for the breathing; a slaughtered pig squeals. The game's sound sliders and pause apply. Move the Sounds sliders live to check volume and range. Click a pig: a grunt, no bell and no bleat, and `PigSounds: first pig click answered with ...` in the log; a goat or a sheep still rings and bleats. Click a Pig Barn: the same grunt and `first Pig Barn click answered`; a Goat Barn or Sheep Barn keeps its own sound, and the barn goes back to it when switched out of Pigs. Move **Click Grunt** to hear each candidate.
 
+## Fix in 1.2.0: villagers and soldiers without shoes or clothes
+
+Reported by the user on September 28, 2026: many villagers, and soldiers sitting in their garrison, had no shoes or clothes while storage held hundreds of each.
+
+Cause: the step 5 garment preference. To make villagers take a garment first, `GarmentPatches` lowered each villager's vanilla shoes, linen clothes and hide coat request to `RequestPriority.Low` whenever any matching garment was in stock. A villager serves its own requests through `logisticsRequester.AssignWorker(this)` (L386603), which uses `AssignmentPriority.Default` with a High threshold, and `ItemRequest.IsActiveForRequestPriority` (the threshold must be at or below the request's priority) hides a Low request from it. Low was never a fallback; it was a block. "In stock" was `ItemInfo.unusedCount`, which `ResourceManager.UpdateUnusedCount` sets to the plain stored count, so a single garment anywhere, claimed or out of reach, left every villager needing that slot waiting for a garment. Soldiers take clothing through the same personal requests (the barracks supplies only weapons, armor and ammunition), so they waited in the garrison.
+
+Fix: the demotion is gone. The garment requests stay High beside the vanilla requests and a villager takes whichever it reaches first; whichever arrives satisfies the "should seek" check for both, so the other request clears. What is lost is a guaranteed garments-first order. A save needs nothing: villagers rebuild their requests on load.
+
+Check: reload a save where villagers lacked shoes or clothes. Within a day or two of game time they fetch them, soldiers included, and garments still get worn.
+
+### Clothing errands urgent (1.2.0, same day)
+
+After the fix, a soldier the user was watching still sat shoeless in its garrison with no battle and no combat flag ever used. The user's view: clothing lasts long, so it should be highest on the list; players also report that clothing happiness will not reach 100% for the achievement, worse with 1000+ villagers.
+
+Mechanism, the one vanilla uses for an archer's missing bow or arrows (`Villager.PeformArcherItemCheck`): `Villager.defaultCategoryRequestPrioritiesOverridesByTag[tag] = new RequestPriorities(120)`, and the logistics search uses that value instead of the request's normal priority 0 for any request carrying the tag (`GetRequestPrioritiesForWorker`, `GetRequestPriorityForWorkerOverride`). `LogisticsRequest.checkPriorityOverridesWhenQueued` keeps the boost on the queued task (`QueuedTaskPriorityCheckTick`). `GarmentPatches` gives the three vanilla clothing requests and the three garment requests a tag of our own (`(RequestTag)19539`; vanilla's enum ends at 9) through the protected `requestTag` setter, sets the flag, and adds the override for every villager from the `VillagerItemRequester` constructor postfix. Effect: a clothing trip outranks ordinary hauling and stocking, and a soldier posted at a combat flag (whose logistics accepts only priority 120 and up) will fetch clothing the way archers fetch arrows. Combat and retreat still come first.
+
+Related vanilla facts: a villager counts 100% for shoes or clothes happiness only while holding the item (`HappinessManager`, per villager 1 or 0, averaged); children are exempt from the shoes score but not the clothes score. Children fetch their own clothes through a logistics entry of their own.
+
+Diagnostic (a postfix on `Villager.OnSelected`, which every selection path reaches; the first attempt hooked the general `ObjectSelectedEvent` path, which villagers do not use, and the second hooked the `VillagerSelectedMale/FemaleEvent` constructors, which Mono inlines, so neither logged anything): clicking any villager logs a `Clothing check:` line, a short "has shoes and clothes" for a dressed villager, and for one lacking shoes or clothes `Clothing check: '<name>' (<occupation>, <state>[, posted at a combat flag: yes/no]) — no shoes: request <count> at <priority>, reserved <n>, urgent/normal, settlement stock <n>; ... urgent boost on/OFF.` If the request is active, urgent and in stock but the villager still never goes, the block is elsewhere (reachability, the source storage, or the task system), and this line says which request to follow.
+
 ## Fix in 1.1.0: Keep in Stock at the Trading Center
 
 Reported by a player on 1.0.0: the **Keep in Stock** checkbox for wool, Winter Boots, Winter Cloak and Woolen Clothes unticked itself when the Trading Center window was reopened.
@@ -250,6 +270,42 @@ Cause: `TradingPost.Awake` seeds its keep-in-stock table (`keepInStockDict`, ite
 Fix (`Patches/TradingPostPatches.cs`): a postfix on `TradingPost.Awake` seeds a false entry for every mod item, and a prefix on `SetKeepInStock` adds the entry on demand for a mod item. Vanilla's own save code persists the ticks.
 
 Check: expect `TradingPostPatches: seeded 4 keep-in-stock entries on a Trading Center` on load. Tick **Keep in Stock** on wool, close and reopen the window: still ticked. Sell some wool to a trader: the target stock holds. Save and reload: still ticked.
+
+## Herd capacity (1.2.0)
+
+Each livestock building type gets a capacity multiplier from 1x to 2x of its vanilla maximum herd size: cow barn, goat barn (goats, sheep and pigs share it), chicken coop, stable, dog kennel and cat kennel.
+
+Mechanism: a building's maximum herd size is `herdSetupData.numLivestockToBeOverpopulated − 1`, and there is one `LivestockHerdSetupData` asset per animal type, so the multiplier scales the asset: maximum = round(vanilla maximum × multiplier), N = maximum + 1. That one number also stops the building window's herd-size slider, marks where the crowding penalty starts, scales breeding (crowd factor and minimum-births space), and limits trader deliveries, so all of those follow.
+
+| Piece | File | Notes |
+|---|---|---|
+| Scaling | `Systems/LivestockCapacity.cs` | Records each asset instance's vanilla N the first time it is seen and computes every later value from it, so nothing compounds and 1x restores vanilla exactly. The slider is chosen by the building type when a building asks (`CatKennel`, `DogKennel`, `GoatBarn`, `ChickenCoop`, `Stable`, `Barn`), else by the asset's name (`CatHerdSetupData_T1` and so on), and only last by its `animalType` field. The shipped cat asset's `animalType` is Horse, so the first build, which used `animalType`, put cats on the Stable slider and left the Cat Kennel slider without effect. LSM's Sheep and Pig setup clones are registered (`RegisterClone`) and copy the goat asset's N; an unregistered clone from an earlier game is recognized by its "(LSM " name and left alone. |
+| Before the barns load | `Patches/CapacityPatches.cs`, `LiveStockMarket.OnSceneWasLoaded` | `LivestockBuilding.Load` trims the saved herd-size setting to N − 1, so the assets are scaled first: a sweep of `Resources.FindObjectsOfTypeAll<LivestockHerdSetupData>()` when the Map scene loads, plus prefixes on `LivestockBuilding.Load` and `Start`. New buildings set their herd size to N − 1 in `Start`, so they start at the new maximum. |
+| Sheep and Pig barns | `Systems/SheepShearing.cs` | `ApplyMode` scales the goat asset and registers the mode's clone before assigning it, so a mode switch never changes the maximum. The goat-asset capture now also skips the Pig clone. |
+| Live change | `LivestockCapacity.ApplyPrefs` | Records every building's maximum, rescales, then: a building whose herd-size setting sat at the old maximum follows a raised one; a building above a lowered maximum comes down to it, and vanilla's `userDefinedMaxLivestock` setter queues the extras for the butcher (`CheckForOverpopulationSlaughter`). A setting below the maximum stays. Each herd's crowding flag is recomputed at once through `Herd.OnAnimalsInHerdCountChanged`. |
+
+Preferences (Keep Clarity group **Capacity**, all live, 1 to 2 in steps of 0.1):
+
+| Preference | Default | Building |
+|---|---|---|
+| `CapacityCowBarn` | 1.0 | Cow barns |
+| `CapacityGoatBarn` | 1.0 | Goat barns: goats, sheep and pigs |
+| `CapacityChickenCoop` | 1.0 | Chicken coops |
+| `CapacityStable` | 1.0 | Stables (horses) |
+| `CapacityDogKennel` | 1.0 | Dog kennels |
+| `CapacityCatKennel` | 1.0 | Cat kennels |
+
+Not saved: the multipliers live in the preferences and the assets are rescaled every session. A save keeps each building's herd-size setting, which vanilla trims to the vanilla maximum if the mod is removed; a herd above it then takes the crowding penalty until the butcher brings it down. The README's removal steps say to set every capacity back to 1 first.
+
+### In-game checks for herd capacity
+
+1. Launch and load a save. Expect `CapacityPatches: patched LivestockBuilding.Load + Start` and one `Capacity: <building> herds ('<asset>') hold N by default` line per asset. Tier 2 barns have their own assets. The cat line should say Cat Kennel and note that the asset's animal type says Horse.
+2. Set **Goat Barn** to 2 in Keep Clarity's Capacity group. Expect `Capacity: maximum herd sizes now ...` with the goat barn doubled and a count of buildings that followed. Open a goat barn: the herd-size slider reaches the new maximum, and a barn that was at the old maximum now shows the new one.
+3. Watch the herd grow past the vanilla maximum over a breeding season without the crowding penalty, or buy animals from a trader into the barn.
+4. Switch that barn to Sheep and to Pigs: the maximum stays the same.
+5. Save and reload: the raised herd-size setting survives, since the asset is scaled before the barn loads.
+6. Lower **Goat Barn** back to 1 with a herd above the vanilla maximum: the barn's herd size comes down to it and the butcher starts working through the extras.
+7. Repeat a quick check on a cow barn, a chicken coop, a stable and, with the DLC, a dog or cat kennel.
 
 ## Tuning the button placement in-game
 

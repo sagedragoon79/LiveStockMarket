@@ -149,6 +149,8 @@
     <Compile Include="Systems\PigVisuals.cs" />
     <Compile Include="Systems\PigHusbandry.cs" />
     <Compile Include="Systems\PigSounds.cs" />
+    <Compile Include="Systems\LivestockCapacity.cs" />
+    <Compile Include="Patches\CapacityPatches.cs" />
     <Compile Include="Systems\AltRecipes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
