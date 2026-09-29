@@ -12,7 +12,7 @@ Newest first. Paste the BBCode block of a version into the Workshop change note 
 [*]Lowering a setting below a herd sends the extra animals to the butcher, the same as lowering the herd size in the building's window.
 [*]A new Capacity group in the settings. All six apply live.
 [*]Fixed: villagers, soldiers included, went without shoes, linen clothes or a hide coat whenever any matching wool garment was in storage, even with plenty of the vanilla items. They now take whichever of the two they reach first.
-[*]Fixed: worn Winter Boots, Winter Cloak and Woolen Clothes never appeared in a villager's window. They now show in the Villager Storage panel's Clothing section beside the vanilla clothing, and building and garrison lists give soldiers and guards shoe and clothes rows.
+[*]Fixed: worn Winter Boots, Winter Cloak and Woolen Clothes never appeared in a villager's window. They now show in the Villager Storage panel's Clothing section beside the vanilla clothing, soldiers included.
 [*]Clothing errands are urgent: villagers and soldiers fetch missing shoes, linen clothes, a hide coat or a wool garment before ordinary hauling and stocking, with the same priority the game gives an archer's missing arrows. This should help large towns keep clothing happiness at full.
 [/list]
 ```
